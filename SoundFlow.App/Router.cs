@@ -335,7 +335,16 @@ internal sealed class RouteMatrix : Control
     int ColumnWidth(OutputDevice d) => Math.Max(d.Channels * (Cell + Sc(4)), Sc(130));
     public int PreferredWidth => Columns().Select(c => c.x + ColumnWidth(c.dev)).DefaultIfEmpty(200).Max() + 16;
 
-    static string ChannelShort(int count, int index) => new DeviceInfo("", "", count).ChannelNames[index];
+    /// <summary>Standard short speaker names — they fit in a cube's width in every language.</summary>
+    static string ChannelShort(int count, int index) => count switch
+    {
+        1 => "M",
+        2 => new[] { "L", "R" }[index],
+        4 => new[] { "L", "R", "RL", "RR" }[index],
+        6 => new[] { "L", "R", "C", "LFE", "RL", "RR" }[index],
+        8 => new[] { "L", "R", "C", "LFE", "RL", "RR", "SL", "SR" }[index],
+        _ => (index + 1).ToString(),
+    };
 
     protected override void OnPaint(PaintEventArgs e)
     {

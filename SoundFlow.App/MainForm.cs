@@ -214,6 +214,7 @@ internal sealed class MainForm : Form
     void BuildUi()
     {
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new(30, 18, 30, 16), RowCount = 4, ColumnCount = 1, BackColor = BackColor };
+        root.ColumnStyles.Add(new(SizeType.Percent, 100));
         root.RowStyles.Add(new(SizeType.AutoSize));
         root.RowStyles.Add(new(SizeType.AutoSize));
         root.RowStyles.Add(new(SizeType.Percent, 100));
@@ -311,6 +312,7 @@ internal sealed class MainForm : Form
         card.Controls.Add(tabs);
 
         var eqLayout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1 };
+        eqLayout.ColumnStyles.Add(new(SizeType.Percent, 100));
         eqLayout.RowStyles.Add(new(SizeType.AutoSize));
         eqLayout.RowStyles.Add(new(SizeType.Percent, 100));
         eqPage.Controls.Add(eqLayout);
@@ -450,6 +452,7 @@ internal sealed class MainForm : Form
     void BuildParametric(Control page)
     {
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1 };
+        layout.ColumnStyles.Add(new(SizeType.Percent, 100));
         layout.RowStyles.Add(new(SizeType.Percent, 62));
         layout.RowStyles.Add(new(SizeType.Percent, 38));
         layout.RowStyles.Add(new(SizeType.AutoSize));
@@ -525,18 +528,22 @@ internal sealed class MainForm : Form
         tips.SetToolTip(undo, L("Отменить (Ctrl+Z)", "Undo (Ctrl+Z)", "Болдырмау (Ctrl+Z)"));
         tips.SetToolTip(redo, L("Вернуть (Ctrl+Y)", "Redo (Ctrl+Y)", "Қайтару (Ctrl+Y)"));
         buttons.Controls.AddRange([add, remove, undo, redo]);
-        buttons.Controls.Add(new Label
+        var hint = new Label
         {
             Text = L("Тяни точку — частота и усиление  •  стрелки по бокам или колесо — ширина (Q)  •  Shift — точнее  •  Ctrl + тянуть — слушать только эту полосу  •  двойной клик — добавить / удалить  •  правый клик — сбросить в 0 dB  •  Shift + правый клик — тип фильтра", "Drag a dot — frequency and gain  •  side arrows or wheel — width (Q)  •  Shift — finer  •  Ctrl + drag — listen to this band alone  •  double-click — add / remove  •  right-click — reset to 0 dB  •  Shift + right-click — filter type", "Нүктені тартыңыз — жиілік пен күшейту  •  бүйірдегі көрсеткілер не дөңгелек — ені (Q)  •  Shift — дәлірек  •  Ctrl + тарту — тек осы жолақты тыңдау  •  қос шерту — қосу / жою  •  оң жақ шерту — 0 dB-ге қайтару  •  Shift + оң жақ шерту — сүзгі түрі"),
-            MaximumSize = new(1100, 0),
-            AutoSize = true, ForeColor = Muted, Padding = new(10, 6, 0, 0),
-        });
+            AutoSize = true, ForeColor = Muted, Padding = new(2, 6, 0, 0),
+        };
+        layout.RowCount = 4;
+        layout.RowStyles.Add(new(SizeType.AutoSize));
         layout.Controls.Add(buttons, 0, 2);
+        layout.Controls.Add(hint, 0, 3);
+        WrapToWidth(hint, layout);
     }
 
     void BuildRouting(TabPage page)
     {
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1 };
+        layout.ColumnStyles.Add(new(SizeType.Percent, 100));
         layout.RowStyles.Add(new(SizeType.AutoSize));
         layout.RowStyles.Add(new(SizeType.Percent, 100));
         layout.RowStyles.Add(new(SizeType.AutoSize));
@@ -544,8 +551,8 @@ internal sealed class MainForm : Form
         channelNote.AutoSize = true;
         channelNote.ForeColor = Muted;
         channelNote.Padding = new(4, 2, 4, 8);
-        channelNote.MaximumSize = new(1150, 0);
         layout.Controls.Add(channelNote, 0, 0);
+        WrapToWidth(channelNote, layout);
 
         var area = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
         channelTable.Dock = DockStyle.Left;
@@ -570,6 +577,7 @@ internal sealed class MainForm : Form
         layout.Controls.Add(area, 0, 1);
 
         outputStrip.Dock = DockStyle.Fill;
+        layout.Resize += (_, _) => outputStrip.MaximumSize = new(layout.ClientSize.Width, 0);
         outputStrip.AutoSize = true;
         outputStrip.WrapContents = true;
         outputStrip.Padding = new(0, 6, 0, 0);
@@ -586,6 +594,14 @@ internal sealed class MainForm : Form
             }
             catch { }
         };
+    }
+
+    /// <summary>Lets an auto-sized label wrap at its container's width.</summary>
+    static void WrapToWidth(Label label, Control container)
+    {
+        void Fit() => label.MaximumSize = new(Math.Max(200, container.ClientSize.Width - container.Padding.Horizontal - 16), 0);
+        container.Resize += (_, _) => Fit();
+        Fit();
     }
 
     int Scale(int v) => (int)Math.Round(v * DeviceDpi / 96f);
