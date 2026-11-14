@@ -71,6 +71,28 @@ internal static class Program
             form.CaptureScreens(folder);
             form.Hide();
         }
+
+        // QA: how the window looks on 125% and 150% screens (not used in README, checked before every release)
+        string qa = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(folder))!, "qa");
+        foreach (var (code, scale) in new[] { ("ru", 1.5f), ("kk", 1.25f), ("en", 1.25f) })
+        {
+            Lang.Set(code);
+            Ui.Forced = true;
+            Ui.Factor = scale;
+            Ui.FontBoost = scale;
+            using var form = new MainForm(startHidden: false, demo: true)
+            {
+                StartPosition = FormStartPosition.Manual,
+                Location = new Point(0, 0),
+                Size = new Size((int)(1240 * scale), (int)(880 * scale)),
+            };
+            form.Show();
+            form.Size = new Size((int)(1240 * scale), (int)(880 * scale));
+            form.CaptureScreens(qa, $"-{(int)(scale * 100)}");
+            form.Hide();
+        }
+        Ui.Forced = false;
+        Ui.Factor = Ui.FontBoost = 1;
         return 0;
     }
 

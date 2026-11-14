@@ -79,7 +79,10 @@ internal sealed class Settings
     public int Mode { get; set; }
     public double[] Graphic { get; set; } = new double[10];
     public List<Band> Parametric { get; set; } = DefaultParametric();
+    /// <summary>Selected profile of the graphic EQ.</summary>
     public string Profile { get; set; } = "flat";
+    /// <summary>Selected profile of the parametric EQ.</summary>
+    public string ParamProfile { get; set; } = "";
     public List<EqProfile> UserProfiles { get; set; } = [];
     public Dictionary<int, ChannelTrim> Channels { get; set; } = [];
     public bool StartWithWindows { get; set; } = true;
@@ -119,6 +122,7 @@ internal sealed class Settings
         foreach (var r in Routes.Values) { r.Pairs ??= []; r.Name ??= ""; r.Gain = Math.Clamp(r.Gain, -60, 12); }
         MainDelayMs = Math.Clamp(MainDelayMs, 0, 500);
         Profile ??= "";
+        ParamProfile ??= "";
     }
 }
 
@@ -299,4 +303,18 @@ internal static class Lang
         Ui.Kk => kk ?? ru,
         _ => ru,
     };
+}
+
+/// <summary>
+/// Screen scaling. Factor = Windows display scale (1.0 at 100%, 1.5 at 150%); every pixel size in the UI goes through S().
+/// FontBoost is 1 normally — only the QA screenshot mode raises it to imitate a high-DPI screen on the 100% build machine.
+/// </summary>
+internal static class Ui
+{
+    public static float Factor { get; set; } = 1;
+    public static float FontBoost { get; set; } = 1;
+    public static bool Forced { get; set; }
+    public static int S(int v) => (int)Math.Round(v * Factor);
+    public static float Sf(float v) => v * Factor;
+    public static float Pt(float points) => points * FontBoost;
 }

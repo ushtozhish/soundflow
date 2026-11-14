@@ -57,14 +57,14 @@ jobs:
         run: |
           $p = Start-Process -FilePath native-release\SoundFlow.exe -ArgumentList '--screenshots', "$PWD\docs\img" -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "screenshots failed: $($p.ExitCode)" }
-          Get-ChildItem docs\img
+          Get-ChildItem docs\img, docs\qa
 
       - name: Commit screenshots
         shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/img
+          git add docs/img docs/qa
           git diff --cached --quiet
           if ($LASTEXITCODE -ne 0) {
             git commit -m "Update README screenshots [skip ci]"

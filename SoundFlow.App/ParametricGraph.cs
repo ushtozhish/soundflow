@@ -7,7 +7,7 @@ namespace SoundFlow;
 /// <summary>
 /// Interactive frequency-response editor.
 /// Drag a dot: frequency / gain. Drag the side arrows or use the wheel: Q.
-/// Shift: fine adjustment. Ctrl while dragging: listen to this band alone.
+/// Shift: fine adjustment. Listening to one band is the "Listen to band" button in the window.
 /// Double-click on empty space: new band. Double-click on a dot or Delete: remove. Right click: gain to 0. Shift+right click: menu.
 /// </summary>
 internal sealed class ParametricGraph : Control
@@ -28,7 +28,6 @@ internal sealed class ParametricGraph : Control
     public event Action<int>? SelectionChanged;
     public event Action<double, double>? AddRequested;
     public event Action<int>? RemoveRequested;
-    public event Action<int>? SoloChanged;
     public event Action<int, string>? TypeRequested;
     public event Action<int>? ToggleRequested;
     public event Action<int>? RangeChosen;
@@ -39,7 +38,7 @@ internal sealed class ParametricGraph : Control
     double startFrequency, startGain, startQ;
     int startSlope;
     int range = 12;
-    readonly Font tiny = new("Segoe UI", 7.5f), info = new("Segoe UI", 9, FontStyle.Bold);
+    readonly Font tiny = new("Segoe UI", Ui.Pt(7.5f)), info = new("Segoe UI", Ui.Pt(9), FontStyle.Bold);
 
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public int Range { get => range; set { range = value is 24 or 48 ? value : 12; Invalidate(); } }
@@ -61,9 +60,9 @@ internal sealed class ParametricGraph : Control
     }
 
     List<Band> Bands => BandsProvider?.Invoke() ?? [];
-    RectangleF Plot => new(52, 30, Math.Max(20, Width - 68), Math.Max(20, Height - 56));
+    RectangleF Plot => new(Ui.S(52), Ui.S(36), Math.Max(20, Width - Ui.S(68)), Math.Max(20, Height - Ui.S(62)));
     /// <summary>The dB-scale button sits at the top of the dB axis: "±12 dB ▾".</summary>
-    RectangleF RangeButton => new(4, 4, 74, 22);
+    RectangleF RangeButton => new(Ui.S(4), Ui.S(4), Ui.S(84), Ui.S(26));
     bool rangeHover;
 
     float X(double f) { var p = Plot; return p.Left + (float)(Math.Log10(Math.Clamp(f, 20, 20000) / 20d) / 3d) * p.Width; }
@@ -71,7 +70,7 @@ internal sealed class ParametricGraph : Control
     float Y(double db) { var p = Plot; return p.Top + (float)((range - Math.Clamp(db, -range, range)) / (2d * range)) * p.Height; }
     double GainAt(float y) { var p = Plot; return Math.Clamp(range - (y - p.Top) / p.Height * 2 * range, -range, range); }
     static double HandleGain(Band b) => Band.HasGain(b.Type) ? b.Gain : 0;
-    static float HandleRadius(double q) => (float)Math.Clamp(72 / Math.Sqrt(Math.Max(.1, q)), 18, 115);
+    static float HandleRadius(double q) => Ui.Sf((float)Math.Clamp(72 / Math.Sqrt(Math.Max(.1, q)), 18, 115));
 
     protected override void OnPaint(PaintEventArgs e)
     {
@@ -87,14 +86,14 @@ internal sealed class ParametricGraph : Control
         {
             float x = X(f);
             g.DrawLine(f is 100 or 1000 or 10000 ? major : grid, x, p.Top, x, p.Bottom);
-            g.DrawString(f >= 1000 ? $"{f / 1000:g}k" : f.ToString(), tiny, text, x - 8, p.Bottom + 5);
+            g.DrawString(f >= 1000 ? $"{f / 1000:g}k" : f.ToString(), tiny, text, x - Ui.S(8), p.Bottom + Ui.S(5));
         }
         int stepDb = range switch { 12 => 3, 24 => 6, _ => 12 };
         for (int db = -range; db <= range; db += stepDb)
         {
             float y = Y(db);
             g.DrawLine(db == 0 ? major : grid, p.Left, y, p.Right, y);
-            g.DrawString(db > 0 ? "+" + db : db.ToString(), tiny, text, 8, y - 6);
+            g.DrawString(db > 0 ? "+" + db : db.ToString(), tiny, text, Ui.S(8), y - Ui.S(7));
         }
         // dB-scale button
         var rb = RangeButton;
@@ -105,6 +104,16 @@ internal sealed class ParametricGraph : Control
         g.DrawString(rbText, info, Brushes.White, rb.X + (rb.Width - rbSize.Width) / 2, rb.Y + (rb.Height - rbSize.Height) / 2);
 
         DrawSpectrum(g, p);
+        if (solo >= 0 && solo < Bands.Count)
+        {
+            var (lo, hi) = ListenRange(Bands[solo]);
+            float x0 = X(Math.Max(lo, 20)), x1 = X(Math.Min(hi, 20000));
+            using var window = new SolidBrush(Color.FromArgb(38, 255, 210, 60));
+            g.FillRectangle(window, x0, p.Top, Math.Max(2, x1 - x0), p.Height);
+            using var edgePen = new Pen(Color.FromArgb(150, 255, 210, 60), 1) { DashStyle = DashStyle.Dash };
+            g.DrawLine(edgePen, x0, p.Top, x0, p.Bottom);
+            g.DrawLine(edgePen, x1, p.Top, x1, p.Bottom);
+        }
 
         var bands = Bands;
         for (int i = 0; i < bands.Count; i++)
@@ -134,14 +143,14 @@ internal sealed class ParametricGraph : Control
             float x = X(b.Frequency), y = Y(HandleGain(b));
             var color = b.Enabled ? ColorOf(i) : Color.FromArgb(90, 95, 105);
             using var brush = new SolidBrush(color);
-            g.FillEllipse(brush, x - 6, y - 6, 12, 12);
-            g.DrawString((i + 1).ToString(), tiny, Brushes.White, x - 4, y + 7);
+            float hr = Ui.Sf(6); g.FillEllipse(brush, x - hr, y - hr, hr * 2, hr * 2);
+            g.DrawString((i + 1).ToString(), tiny, Brushes.White, x - Ui.S(4), y + Ui.S(7));
             if (i == selected && !IsCut(b)) DrawQHandles(g, x, y, b.Q, color);
             if (i == selected && IsCut(b)) DrawSlopeHint(g, x, y, color);
             if (i == hover || i == selected)
             {
                 using var ring = new Pen(i == solo ? Color.Gold : Color.White, 2);
-                g.DrawEllipse(ring, x - 9, y - 9, 18, 18);
+                float rr = Ui.Sf(9); g.DrawEllipse(ring, x - rr, y - rr, rr * 2, rr * 2);
             }
         }
 
@@ -152,13 +161,13 @@ internal sealed class ParametricGraph : Control
             float x = X(b.Frequency), y = Y(HandleGain(b));
             string gain = Band.HasGain(b.Type) ? $"   {b.Gain:+0.0;-0.0;0.0} dB" : "";
             string slope = IsCut(b) ? $"   {b.Slope} dB/oct" : $"   Q {b.Q:0.00}";
-            string s = $"{bubbleIndex + 1}  {TypeName(b.Type)}   {FormatHz(b.Frequency)}{gain}{slope}{(bubbleIndex == solo ? L("   СОЛО", "   SOLO", "   СОЛО") : "")}";
+            string s = $"{bubbleIndex + 1}  {TypeName(b.Type)}   {FormatHz(b.Frequency)}{gain}{slope}{(bubbleIndex == solo ? "   🎧" : "")}";
             var size = g.MeasureString(s, info);
             float bx = Math.Clamp(x - size.Width / 2 - 8, p.Left, Math.Max(p.Left, p.Right - size.Width - 16));
-            float by = y - 44 < p.Top ? y + 16 : y - 44;
+            float bh = size.Height + Ui.Sf(10), by = y - bh - Ui.Sf(16) < p.Top ? y + Ui.Sf(16) : y - bh - Ui.Sf(16);
             using var bubble = new SolidBrush(Color.FromArgb(235, 30, 32, 39));
-            g.FillRoundedRectangle(bubble, new RectangleF(bx, by, size.Width + 16, 27), 6);
-            g.DrawString(s, info, Brushes.White, bx + 8, by + 5);
+            g.FillRoundedRectangle(bubble, new RectangleF(bx, by, size.Width + Ui.Sf(16), bh), 6);
+            g.DrawString(s, info, Brushes.White, bx + Ui.Sf(8), by + Ui.Sf(5));
         }
 
         if (bands.Count == 0)
@@ -270,7 +279,7 @@ internal sealed class ParametricGraph : Control
     {
         var bands = Bands;
         int best = -1;
-        double distance = 14;
+        double distance = Ui.S(14);
         for (int i = 0; i < bands.Count; i++)
         {
             double dx = X(bands[i].Frequency) - pt.X, dy = Y(HandleGain(bands[i])) - pt.Y, d = Math.Sqrt(dx * dx + dy * dy);
@@ -285,9 +294,9 @@ internal sealed class ParametricGraph : Control
         if (selected < 0 || selected >= bands.Count || IsCut(bands[selected])) return 0;
         var b = bands[selected];
         float x = X(b.Frequency), y = Y(HandleGain(b)), r = HandleRadius(b.Q);
-        if (Math.Abs(pt.Y - y) > 12) return 0;
-        if (Math.Abs(pt.X - (x - r - 3)) < 12) return -1;
-        if (Math.Abs(pt.X - (x + r + 3)) < 12) return 1;
+        if (Math.Abs(pt.Y - y) > Ui.S(12)) return 0;
+        if (Math.Abs(pt.X - (x - r - 3)) < Ui.S(12)) return -1;
+        if (Math.Abs(pt.X - (x + r + 3)) < Ui.S(12)) return 1;
         return 0;
     }
 
@@ -323,7 +332,6 @@ internal sealed class ParametricGraph : Control
         startGain = bands[index].Gain;
         startQ = bands[index].Q;
         startSlope = bands[index].Slope;
-        if ((ModifierKeys & Keys.Control) != 0) SetSolo(index);
         Invalidate();
     }
 
@@ -377,7 +385,6 @@ internal sealed class ParametricGraph : Control
         dragging = false;
         Capture = false;
         qHandle = 0;
-        if (solo >= 0) SetSolo(-1);
         EditFinished?.Invoke();
         Invalidate();
     }
@@ -463,13 +470,25 @@ internal sealed class ParametricGraph : Control
         Invalidate();
     }
 
-    void SetSolo(int index)
+    /// <summary>Band being listened to (gold ring, window shaded), -1 = none. Set by the window.</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public int Solo
     {
-        if (solo == index) return;
-        solo = index;
-        SoloChanged?.Invoke(index);
-        Invalidate();
+        get => solo;
+        set { if (solo != value) { solo = value; Invalidate(); } }
     }
+
+    /// <summary>Frequency range heard while listening to a band (same as the APO listen filter).</summary>
+    static (double lo, double hi) ListenRange(Band b) => b.Type switch
+    {
+        "LS" => (20, b.Frequency * 1.5),
+        "HP" => (20, b.Frequency * 2),
+        "HS" => (b.Frequency / 1.5, 20000),
+        "LP" => (b.Frequency / 2, 20000),
+        _ => (b.Frequency / Math.Pow(2, Bw(b.Q) / 2), b.Frequency * Math.Pow(2, Bw(b.Q) / 2)),
+    };
+
+    static double Bw(double q) { q = Math.Clamp(q, 0.5, 8); return 2 * Math.Log(1 / (2 * q) + Math.Sqrt(1 / (4 * q * q) + 1)) / Math.Log(2); }
 
     void ShowMenu(int index, Point location)
     {

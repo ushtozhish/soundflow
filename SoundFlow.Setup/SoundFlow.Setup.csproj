@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework><RuntimeIdentifier>win-x64</RuntimeIdentifier><OutputType>WinExe</OutputType><UseWindowsForms>true</UseWindowsForms><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
-    <AssemblyName>SoundFlow-Setup</AssemblyName><Version>1.4.1</Version><ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode><SatelliteResourceLanguages>ru;en</SatelliteResourceLanguages><ApplicationManifest>app.manifest</ApplicationManifest><ApplicationIcon>..\soundflow.ico</ApplicationIcon>
+    <AssemblyName>SoundFlow-Setup</AssemblyName><Version>1.5.0</Version><ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode><SatelliteResourceLanguages>ru;en</SatelliteResourceLanguages><ApplicationManifest>app.manifest</ApplicationManifest><ApplicationIcon>..\soundflow.ico</ApplicationIcon>
     <PublishSingleFile>true</PublishSingleFile><SelfContained>true</SelfContained><IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract><EnableCompressionInSingleFile>true</EnableCompressionInSingleFile><DebugType>none</DebugType><DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>

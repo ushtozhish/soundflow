@@ -87,8 +87,35 @@ internal static class Apo
             foreach (var line in FilterLines(b))
                 sb.Append($"Filter {n++}: {(on ? "ON" : "OFF")} {line}\r\n");
         }
+        // "Listen to band": keep only the frequency range this band works on, so you hear what it changes
+        if (soloBand >= 0 && soloBand < s.Parametric.Count)
+        {
+            var solo = s.Parametric[soloBand];
+            string channels = solo.Channels.Trim();
+            if (channels != currentChannels) { sb.Append($"Channel: {(channels.Length == 0 ? "all" : channels)}\r\n"); currentChannels = channels; }
+            foreach (var line in ListenLines(solo)) sb.Append($"Filter {n++}: ON {line}\r\n");
+        }
         if (currentChannels.Length > 0) sb.Append("Channel: all\r\n");
         return sb.ToString();
+    }
+
+    /// <summary>Isolating filter for "listen to band": the region the band affects.</summary>
+    public static IEnumerable<string> ListenLines(Band b)
+    {
+        double f = b.Frequency;
+        switch (b.Type)
+        {
+            case "LS": yield return $"LPQ Fc {F(Math.Min(f * 1.5, 20000))} Hz Q 0.7071"; yield return $"LPQ Fc {F(Math.Min(f * 1.5, 20000))} Hz Q 0.7071"; break;
+            case "HS": yield return $"HPQ Fc {F(Math.Max(f / 1.5, 20))} Hz Q 0.7071"; yield return $"HPQ Fc {F(Math.Max(f / 1.5, 20))} Hz Q 0.7071"; break;
+            case "HP": yield return $"LPQ Fc {F(Math.Min(f * 2, 20000))} Hz Q 0.7071"; yield return $"LPQ Fc {F(Math.Min(f * 2, 20000))} Hz Q 0.7071"; break;
+            case "LP": yield return $"HPQ Fc {F(Math.Max(f / 2, 20))} Hz Q 0.7071"; yield return $"HPQ Fc {F(Math.Max(f / 2, 20))} Hz Q 0.7071"; break;
+            default:
+                // band-pass twice = steeper skirts, the bell's own width decides how wide the window is
+                double q = Math.Clamp(b.Q, 0.5, 8);
+                yield return $"BP Fc {F(f)} Hz Q {F(q)}";
+                yield return $"BP Fc {F(f)} Hz Q {F(q)}";
+                break;
+        }
     }
 
     static IEnumerable<string> FilterLines(Band b)

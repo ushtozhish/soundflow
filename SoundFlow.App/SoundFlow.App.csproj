@@ -9,7 +9,7 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AssemblyName>SoundFlow</AssemblyName>
     <RootNamespace>SoundFlow</RootNamespace>
-    <Version>1.4.1</Version>
+    <Version>1.5.0</Version>
     <Product>SoundFlow</Product>
     <Description>SoundFlow — системный эквалайзер для Windows</Description>
     <ApplicationManifest>app.manifest</ApplicationManifest>

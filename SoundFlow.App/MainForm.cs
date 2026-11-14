@@ -19,6 +19,22 @@ internal sealed class MainForm : Form
         new("bright", "Яркий", "Bright", "Жарқын", [-2, -1, 0, 0, 1, 2, 3, 4, 5, 5]),
     ];
 
+    sealed record ParamPreset(string Id, string Ru, string En, string Kk, Band[] Bands);
+    static Band Pk(double f, double g, double q) => new() { Type = "PK", Frequency = f, Gain = g, Q = q };
+    static readonly ParamPreset[] ParamPresets =
+    [
+        new("p-neutral", "Нейтральный", "Neutral", "Бейтарап", [Pk(100, 0, 1), Pk(1000, 0, 1), Pk(8000, 0, 1)]),
+        new("p-night", "Ночное кино", "Night movie", "Түнгі кино",
+            [new() { Type = "HP", Frequency = 40, Slope = 24 }, new() { Type = "LS", Frequency = 120, Gain = -3, Q = .7 }, Pk(2500, 3.5, 1), new() { Type = "HS", Frequency = 9000, Gain = -2, Q = .7 }]),
+        new("p-dialogue", "Чёткие диалоги", "Clear dialogue", "Анық диалог",
+            [new() { Type = "HP", Frequency = 80, Slope = 12 }, Pk(250, -2.5, 1.2), Pk(3000, 4, 1.1), Pk(6500, -1.5, 2)]),
+        new("p-bass", "Глубокий бас", "Deep bass", "Терең бас",
+            [new() { Type = "HP", Frequency = 25, Slope = 24 }, new() { Type = "LS", Frequency = 90, Gain = 5, Q = .7 }, Pk(250, -1.5, 1)]),
+        new("p-hum", "Убрать гул 50 Гц", "Remove 50 Hz hum", "50 Гц гуілін алу",
+            [new() { Type = "NO", Frequency = 50, Q = 10 }, new() { Type = "NO", Frequency = 100, Q = 10 }, new() { Type = "NO", Frequency = 150, Q = 10 }]),
+        new("p-air", "Воздух", "Air", "Ауа", [Pk(3500, 1.5, 1), new() { Type = "HS", Frequency = 10000, Gain = 4, Q = .7 }]),
+    ];
+
     /// <summary>Item of the profile list: Id is a built-in id or "★ name" for user profiles.</summary>
     sealed record ProfileItem(string Id, string Display) { public override string ToString() => Display; }
     const string UserMark = "★ ";
@@ -58,6 +74,7 @@ internal sealed class MainForm : Form
     readonly TrackBar[] graphic = new TrackBar[10];
     readonly Label[] graphicValues = new Label[10];
     readonly ParametricGraph graph = new();
+    readonly CheckBox listen = new();
     readonly DataGridView grid = new();
     readonly NoWheelComboBox profile = new();
     readonly TableLayoutPanel channelTable = new();
@@ -76,6 +93,7 @@ internal sealed class MainForm : Form
     {
         this.startHidden = startHidden;
         this.demo = demo;
+        if (!Ui.Forced) Ui.Factor = DeviceDpi / 96f;
         bool found = true;
         if (demo) s = Demo.Settings();
         else (s, found) = Store.Load();
@@ -89,8 +107,8 @@ internal sealed class MainForm : Form
         Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application;
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
-        MinimumSize = new(1000, 680);
-        Size = new(1200, 780);
+        MinimumSize = new(Scale(1000), Scale(680));
+        Size = new(Scale(1200), Scale(780));
         BackColor = Color.FromArgb(10, 11, 15);
         ForeColor = Color.FromArgb(244, 243, 239);
         Font = new("Segoe UI", 9);
@@ -100,6 +118,7 @@ internal sealed class MainForm : Form
         updating = true; // UI events must not touch the settings while the window is being built
         BuildUi();
         BuildTray();
+        if (Ui.FontBoost != 1) BoostFonts();
 
         graph.BandsProvider = () => s.Parametric;
         graph.SpectrumProvider = demo ? Demo.Spectrum : analyzer.Snapshot;
@@ -331,7 +350,7 @@ internal sealed class MainForm : Form
         var routingPage = new TabPage(L("МАРШРУТИЗАЦИЯ", "ROUTING", "БАҒЫТТАУ")) { BackColor = Card, ForeColor = ForeColor, Padding = new(8) };
         tabs.TabPages.Add(eqPage);
         tabs.TabPages.Add(routingPage);
-        tabs.SelectedIndexChanged += (_, _) => UpdateAnalyzer();
+        tabs.SelectedIndexChanged += (_, _) => { UpdateAnalyzer(); if (tabs.SelectedIndex != 0) listen.Checked = false; UpdateListen(); };
         card.Controls.Add(tabs);
 
         var eqLayout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1 };
@@ -345,7 +364,25 @@ internal sealed class MainForm : Form
         modeGraphic.Click += (_, _) => SetMode(0);
         modeParametric.Click += (_, _) => SetMode(1);
         modes.Controls.AddRange([modeGraphic, modeParametric]);
-        eqLayout.Controls.Add(modes, 0, 0);
+        var top = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, Margin = new(0, 0, 0, 6) };
+        top.ColumnStyles.Add(new(SizeType.Percent, 100));
+        top.ColumnStyles.Add(new(SizeType.AutoSize));
+        modes.Margin = Padding.Empty;
+        top.Controls.Add(modes, 0, 0);
+        var bar = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Anchor = AnchorStyles.Right, Margin = Padding.Empty };
+        bar.Controls.Add(new Label { Text = L("ПРОФИЛЬ", "PROFILE", "ПРОФИЛЬ"), ForeColor = Muted, AutoSize = true, Margin = new(0, Scale(7), 8, 0) });
+        profile.DropDownStyle = ComboBoxStyle.DropDownList;
+        profile.Width = Scale(210);
+        profile.Margin = new(0, Scale(3), 0, 0);
+        profile.SelectionChangeCommitted += (_, _) => SelectProfile();
+        bar.Controls.Add(profile);
+        var saveProfile = SmallButton(L("Сохранить как…", "Save as…", "Басқаша сақтау…"), Acid);
+        saveProfile.Click += (_, _) => SaveProfile();
+        var deleteProfile = SmallButton(L("Удалить", "Delete", "Жою"), Color.FromArgb(255, 130, 120));
+        deleteProfile.Click += (_, _) => DeleteProfile();
+        bar.Controls.AddRange([saveProfile, deleteProfile]);
+        top.Controls.Add(bar, 1, 0);
+        eqLayout.Controls.Add(top, 0, 0);
         var host = new Panel { Dock = DockStyle.Fill };
         graphicHost.Dock = DockStyle.Fill;
         parametricHost.Dock = DockStyle.Fill;
@@ -357,33 +394,18 @@ internal sealed class MainForm : Form
         BuildRouting(routingPage);
 
         // footer
-        var foot = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 6, AutoSize = true, Margin = new(0, 10, 0, 0) };
-        foot.ColumnStyles.Add(new(SizeType.AutoSize));
-        foot.ColumnStyles.Add(new(SizeType.Absolute, 200));
-        foot.ColumnStyles.Add(new(SizeType.AutoSize));
-        foot.ColumnStyles.Add(new(SizeType.AutoSize));
+        var foot = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = true, Margin = new(0, 10, 0, 0) };
         foot.ColumnStyles.Add(new(SizeType.Percent, 100));
         foot.ColumnStyles.Add(new(SizeType.AutoSize));
-        foot.Controls.Add(new Label { Text = L("ПРОФИЛЬ", "PROFILE", "ПРОФИЛЬ"), ForeColor = Muted, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new(0, 0, 10, 0) }, 0, 0);
-        profile.DropDownStyle = ComboBoxStyle.DropDownList;
-        profile.Dock = DockStyle.Fill;
-        profile.SelectionChangeCommitted += (_, _) => SelectProfile();
-        foot.Controls.Add(profile, 1, 0);
-        var saveProfile = SmallButton(L("Сохранить как…", "Save as…", "Басқаша сақтау…"), Acid);
-        saveProfile.Click += (_, _) => SaveProfile();
-        foot.Controls.Add(saveProfile, 2, 0);
-        var deleteProfile = SmallButton(L("Удалить", "Delete", "Жою"), Color.FromArgb(255, 130, 120));
-        deleteProfile.Click += (_, _) => DeleteProfile();
-        foot.Controls.Add(deleteProfile, 3, 0);
         headroom.AutoSize = true;
-        headroom.Anchor = AnchorStyles.None;
+        headroom.Anchor = AnchorStyles.Left;
         tips.SetToolTip(headroom, L("Насколько итоговый уровень после предусиления и эквалайзера выше или ниже 0 dB.", "How far the final level after preamp and EQ is above or below 0 dB.", "Алдын ала күшейту мен эквалайзерден кейінгі қорытынды деңгей 0 dB-ден қаншалықты жоғары не төмен."));
-        foot.Controls.Add(headroom, 4, 0);
+        foot.Controls.Add(headroom, 0, 0);
         status.AutoSize = true;
         status.Anchor = AnchorStyles.Right;
         status.Cursor = Cursors.Hand;
         status.Click += (_, _) => FixProblem();
-        foot.Controls.Add(status, 5, 0);
+        foot.Controls.Add(status, 1, 0);
         root.Controls.Add(foot, 0, 3);
     }
 
@@ -415,8 +437,8 @@ internal sealed class MainForm : Form
     {
         var b = new CheckBox
         {
-            Text = text, Appearance = Appearance.Button, Checked = on, Size = new(34, 30), Anchor = AnchorStyles.Left,
-            TextAlign = ContentAlignment.MiddleCenter, FlatStyle = FlatStyle.Flat, Font = new("Segoe UI", 10, FontStyle.Bold), Margin = new(4, 0, 0, 0),
+            Text = text, Appearance = Appearance.Button, Checked = on, AutoSize = false, Size = new(Scale(32), Scale(28)), Anchor = AnchorStyles.Left,
+            TextAlign = ContentAlignment.MiddleCenter, FlatStyle = FlatStyle.Flat, Font = new("Segoe UI", 9, FontStyle.Bold), Margin = new(4, 0, 0, 0), Padding = Padding.Empty,
         };
         void Paint() { b.BackColor = b.Checked ? onColor : Color.FromArgb(30, 33, 40); b.ForeColor = b.Checked ? Color.Black : Color.Gainsboro; }
         b.FlatAppearance.BorderColor = Color.FromArgb(60, 64, 74);
@@ -443,10 +465,35 @@ internal sealed class MainForm : Form
         Font = new("Segoe UI", 9, FontStyle.Bold),
     };
 
+    /// <summary>"Listen to band": APO keeps only the selected band's frequency range.</summary>
+    void UpdateListen()
+    {
+        int want = listen.Checked && s.Mode == 1 && tabs.SelectedIndex == 0 ? graph.Selected : -1;
+        if (listen.Checked && want < 0 && s.Mode == 1 && s.Parametric.Count > 0)
+        {
+            graph.Selected = 0;
+            SelectGridRow(0);
+            want = 0;
+        }
+        PaintListen();
+        if (want == soloBand) return;
+        soloBand = want;
+        graph.Solo = want;
+        if (!demo) Apply();
+    }
+
+    void PaintListen()
+    {
+        listen.BackColor = listen.Checked ? Color.FromArgb(255, 205, 60) : Color.FromArgb(22, 24, 30);
+        listen.ForeColor = listen.Checked ? Color.Black : Color.FromArgb(255, 205, 60);
+    }
+
     void SetMode(int mode)
     {
         if (!updating && s.Mode != mode) { s.Mode = mode; Changed(); }
         graphicHost.Visible = s.Mode == 0;
+        if (profile.IsHandleCreated || profile.Items.Count > 0) FillProfiles();
+        if (s.Mode != 1 && listen.Checked) listen.Checked = false;
         parametricHost.Visible = s.Mode == 1;
         foreach (var (b, m) in new[] { (modeGraphic!, 0), (modeParametric!, 1) })
         {
@@ -501,7 +548,7 @@ internal sealed class MainForm : Form
         graph.SelectionChanged += SelectGridRow;
         graph.AddRequested += (f, g) => AddBand(new Band { Type = "PK", Frequency = f, Gain = g, Q = 1 });
         graph.RemoveRequested += RemoveBand;
-        graph.SoloChanged += i => { soloBand = i; Apply(); };
+        graph.SelectionChanged += _ => UpdateListen();
         graph.TypeRequested += (i, t) => { if (i < s.Parametric.Count) { s.Parametric[i].Type = t; UpdateGridRow(i); Changed(); ScheduleSave(); } };
         graph.ToggleRequested += i => { if (i < s.Parametric.Count) { s.Parametric[i].Enabled = !s.Parametric[i].Enabled; UpdateGridRow(i); Changed(); ScheduleSave(); } };
         graph.RangeChosen += value => { s.DisplayRange = value; graph.Range = s.DisplayRange; ScheduleSave(); };
@@ -526,6 +573,9 @@ internal sealed class MainForm : Form
         grid.ColumnHeadersDefaultCellStyle.Font = new("Segoe UI", 8.5f, FontStyle.Bold);
         grid.EnableHeadersVisualStyles = false;
         grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        grid.RowTemplate.Height = Scale(26);
+        grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+        grid.ColumnHeadersHeight = Scale(28);
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "N", HeaderText = "№", FillWeight = 22, ReadOnly = true });
         grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "On", HeaderText = L("ВКЛ", "ON", "ҚОС"), FillWeight = 28 });
         var type = new DataGridViewComboBoxColumn { Name = "Type", HeaderText = L("ТИП", "TYPE", "ТҮРІ"), FillWeight = 105, FlatStyle = FlatStyle.Flat };
@@ -565,10 +615,24 @@ internal sealed class MainForm : Form
         redo.Click += (_, _) => Redo();
         tips.SetToolTip(undo, L("Отменить (Ctrl+Z)", "Undo (Ctrl+Z)", "Болдырмау (Ctrl+Z)"));
         tips.SetToolTip(redo, L("Вернуть (Ctrl+Y)", "Redo (Ctrl+Y)", "Қайтару (Ctrl+Y)"));
-        buttons.Controls.AddRange([add, remove, undo, redo]);
+        listen.Text = L("🎧 Слушать полосу", "🎧 Listen to band", "🎧 Жолақты тыңдау");
+        listen.Appearance = Appearance.Button;
+        listen.AutoSize = true;
+        listen.FlatStyle = FlatStyle.Flat;
+        listen.Padding = new(6, 2, 6, 2);
+        listen.Margin = new(18, 0, 0, 0);
+        listen.MinimumSize = new(0, rowHeight);
+        listen.TextAlign = ContentAlignment.MiddleCenter;
+        listen.FlatAppearance.BorderColor = Color.FromArgb(150, 130, 60);
+        listen.CheckedChanged += (_, _) => UpdateListen();
+        tips.SetToolTip(listen, L("Пока нажато, слышен только диапазон частот выделенной точки — вместе с её изменением. Двигайте точку и слушайте, что она делает.",
+                                  "While pressed you hear only the frequency range of the selected point — with its change applied. Move the point and hear what it does.",
+                                  "Басулы тұрғанда тек таңдалған нүктенің жиілік ауқымы — оның өзгерісімен бірге естіледі. Нүктені жылжытып, не істейтінін тыңдаңыз."));
+        PaintListen();
+        buttons.Controls.AddRange([add, remove, undo, redo, listen]);
         var hint = new Label
         {
-            Text = L("Тяни точку — частота и усиление  •  стрелки по бокам или колесо — ширина (Q), у High-pass / Low-pass тянуть вверх-вниз или колесо — крутизна  •  Shift — точнее  •  Ctrl + тянуть — слушать только эту полосу  •  двойной клик — добавить / удалить  •  правый клик — сбросить в 0 dB  •  Shift + правый клик — тип фильтра", "Drag a dot — frequency and gain  •  side arrows or wheel — width (Q); High-pass / Low-pass: drag up/down or wheel — slope  •  Shift — finer  •  Ctrl + drag — listen to this band alone  •  double-click — add / remove  •  right-click — reset to 0 dB  •  Shift + right-click — filter type", "Нүктені тартыңыз — жиілік пен күшейту  •  бүйірдегі көрсеткілер не дөңгелек — ені (Q), High-pass / Low-pass үшін жоғары-төмен тарту не дөңгелек — еңіс  •  Shift — дәлірек  •  Ctrl + тарту — тек осы жолақты тыңдау  •  қос шерту — қосу / жою  •  оң жақ шерту — 0 dB-ге қайтару  •  Shift + оң жақ шерту — сүзгі түрі"),
+            Text = L("Тяни точку — частота и усиление  •  стрелки по бокам или колесо — ширина (Q), у High-pass / Low-pass тянуть вверх-вниз или колесо — крутизна  •  Shift — точнее  •  двойной клик — добавить / удалить  •  правый клик — сбросить в 0 dB  •  Shift + правый клик — тип фильтра  •  🎧 — слушать полосу", "Drag a dot — frequency and gain  •  side arrows or wheel — width (Q); High-pass / Low-pass: drag up/down or wheel — slope  •  Shift — finer  •  double-click — add / remove  •  right-click — reset to 0 dB  •  Shift + right-click — filter type  •  🎧 — listen to band", "Нүктені тартыңыз — жиілік пен күшейту  •  бүйірдегі көрсеткілер не дөңгелек — ені (Q), High-pass / Low-pass үшін жоғары-төмен тарту не дөңгелек — еңіс  •  Shift — дәлірек  •  қос шерту — қосу / жою  •  оң жақ шерту — 0 dB-ге қайтару  •  Shift + оң жақ шерту — сүзгі түрі  •  🎧 — жолақты тыңдау"),
             AutoSize = true, ForeColor = Muted, Padding = new(2, 6, 0, 0),
         };
         layout.RowCount = 4;
@@ -641,12 +705,13 @@ internal sealed class MainForm : Form
         Fit();
     }
 
-    int Scale(int v) => (int)Math.Round(v * DeviceDpi / 96f);
+    static int Scale(int v) => Ui.S(v);
 
     bool RouteIsOn(string id, int src, int dst)
     {
         s.Routes.TryGetValue(id, out var route);
         if (id == device.Id && (route is null || !route.Custom)) return src == dst;
+        if (id != device.Id && route is { Custom: true }) return false; // remap kept for when it is the default again
         return route?.Has(src, dst) ?? false;
     }
 
@@ -654,6 +719,11 @@ internal sealed class MainForm : Form
     {
         if (!s.Routes.TryGetValue(id, out var route))
             s.Routes[id] = route = new RouteTarget { Name = outputsList.FirstOrDefault(o => o.Id == id)?.Name ?? "" };
+        if (id != device.Id && route.Custom)
+        {
+            // this device has a saved remap from when it was the Windows default — start a copy route instead
+            s.Routes[id] = route = new RouteTarget { Name = route.Name };
+        }
         if (id == device.Id && !route.Custom)
         {
             route.Custom = true;
@@ -697,7 +767,7 @@ internal sealed class MainForm : Form
         tips.SetToolTip(delay, L("Звук на другие карты приходит чуть позже (обычно 30–60 мс). Задержите основное устройство на столько же, чтобы всё звучало вместе.", "Copies on other cards arrive slightly later (usually 30–60 ms). Delay the main device by the same amount so everything plays together.", "Басқа карталарға дыбыс сәл кешірек жетеді (әдетте 30–60 мс). Бәрі бірге дыбыстау үшін негізгі құрылғыны да сонша кідіртіңіз."));
         delay.ValueChanged += (_, _) => { if (updating) return; s.MainDelayMs = (int)delay.Value; Changed(); };
         outputStrip.Controls.AddRange([delayLabel, delay]);
-        foreach (var o in outputsList.Where(o => !o.IsDefault && s.Routes.ContainsKey(o.Id)))
+        foreach (var o in outputsList.Where(o => !o.IsDefault && s.Routes.TryGetValue(o.Id, out var rt) && !rt.Custom))
         {
             var route = s.Routes[o.Id];
             var name = new Label { Text = o.Name, AutoSize = true, AutoEllipsis = true, ForeColor = Color.Gainsboro, Margin = new(12, 8, 4, 0), MaximumSize = new(Scale(170), Scale(20)) };
@@ -798,17 +868,22 @@ internal sealed class MainForm : Form
         UpdateHeadroom();
     }
 
+    /// <summary>The profile list shows the profiles of the EQ that is open: graphic or parametric.</summary>
     void FillProfiles()
     {
         profile.Items.Clear();
-        foreach (var b in BuiltInProfiles) profile.Items.Add(new ProfileItem(b.Id, L(b.Ru, b.En, b.Kk)));
-        foreach (var p in s.UserProfiles) profile.Items.Add(new ProfileItem(UserMark + p.Name, UserMark + p.Name));
+        if (s.Mode == 0)
+            foreach (var b in BuiltInProfiles) profile.Items.Add(new ProfileItem(b.Id, L(b.Ru, b.En, b.Kk)));
+        else
+            foreach (var b in ParamPresets) profile.Items.Add(new ProfileItem(b.Id, L(b.Ru, b.En, b.Kk)));
+        foreach (var p in s.UserProfiles.Where(p => p.Mode == s.Mode)) profile.Items.Add(new ProfileItem(UserMark + p.Name, UserMark + p.Name));
         // settings of 1.1.0 stored the Russian display name of built-ins
         var legacy = BuiltInProfiles.FirstOrDefault(b => b.Ru == s.Profile);
         if (legacy is not null) s.Profile = legacy.Id;
+        string current = s.Mode == 0 ? s.Profile : s.ParamProfile;
         int index = -1;
         for (int i = 0; i < profile.Items.Count; i++)
-            if (((ProfileItem)profile.Items[i]!).Id == s.Profile) index = i;
+            if (((ProfileItem)profile.Items[i]!).Id == current) index = i;
         profile.SelectedIndex = index;
     }
 
@@ -974,19 +1049,22 @@ internal sealed class MainForm : Form
     void SelectProfile()
     {
         if (profile.SelectedItem is not ProfileItem item) return;
-        if (BuiltInProfiles.FirstOrDefault(b => b.Id == item.Id) is { } builtIn)
-        {
+        if (s.Mode == 0 && BuiltInProfiles.FirstOrDefault(b => b.Id == item.Id) is { } builtIn)
             s.Graphic = [.. builtIn.Values];
-            s.Mode = 0;
-        }
-        else if (item.Id.StartsWith(UserMark) && s.UserProfiles.FirstOrDefault(p => p.Name == item.Id[UserMark.Length..]) is { } p)
+        else if (s.Mode == 1 && ParamPresets.FirstOrDefault(b => b.Id == item.Id) is { } preset)
         {
-            s.Mode = p.Mode;
-            s.Graphic = [.. p.Graphic];
-            s.Parametric = p.Parametric.Select(b => b.Clone()).ToList();
+            s.Parametric = preset.Bands.Select(b => b.Clone()).ToList();
+            foreach (var b in s.Parametric) Store.NormalizeBand(b);
+        }
+        else if (item.Id.StartsWith(UserMark) && s.UserProfiles.FirstOrDefault(p => p.Mode == s.Mode && p.Name == item.Id[UserMark.Length..]) is { } p)
+        {
+            if (s.Mode == 0) s.Graphic = [.. p.Graphic];
+            else s.Parametric = p.Parametric.Select(b => b.Clone()).ToList();
         }
         else return;
-        s.Profile = item.Id;  // the preamp is intentionally NOT changed by profiles
+        // the preamp is intentionally NOT changed by profiles
+        if (s.Mode == 0) s.Profile = item.Id; else s.ParamProfile = item.Id;
+        graph.Selected = -1;
         FillFromSettings();
         Changed();
         ScheduleSave();
@@ -994,12 +1072,13 @@ internal sealed class MainForm : Form
 
     void SaveProfile()
     {
-        string suggested = s.Profile.StartsWith(UserMark) ? s.Profile[UserMark.Length..] : L("Мой профиль", "My profile", "Менің профилім");
+        string currentId = s.Mode == 0 ? s.Profile : s.ParamProfile;
+        string suggested = currentId.StartsWith(UserMark) ? currentId[UserMark.Length..] : L("Мой профиль", "My profile", "Менің профилім");
         var name = Prompt.Show(this, L("Сохранить профиль", "Save profile", "Профильді сақтау"), L("Название профиля (сохраняется текущий эквалайзер, без предусиления):", "Profile name (saves the current EQ, without the preamp):", "Профиль атауы (алдын ала күшейтусіз, ағымдағы эквалайзер сақталады):"), suggested)?.Trim();
         if (string.IsNullOrEmpty(name)) return;
-        s.UserProfiles.RemoveAll(p => p.Name == name);
+        s.UserProfiles.RemoveAll(p => p.Mode == s.Mode && p.Name == name);
         s.UserProfiles.Add(new EqProfile { Name = name, Mode = s.Mode, Graphic = [.. s.Graphic], Parametric = s.Parametric.Select(b => b.Clone()).ToList() });
-        s.Profile = UserMark + name;
+        if (s.Mode == 0) s.Profile = UserMark + name; else s.ParamProfile = UserMark + name;
         FillProfiles();
         ScheduleSave();
     }
@@ -1012,8 +1091,8 @@ internal sealed class MainForm : Form
             return;
         }
         if (MessageBox.Show(this, string.Format(L("Удалить профиль «{0}»?", "Delete profile “{0}”?", "«{0}» профилін жою керек пе?"), name[UserMark.Length..]), "SoundFlow", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
-        s.UserProfiles.RemoveAll(p => p.Name == name[UserMark.Length..]);
-        s.Profile = "";
+        s.UserProfiles.RemoveAll(p => p.Mode == s.Mode && p.Name == name[UserMark.Length..]);
+        if (s.Mode == 0) s.Profile = ""; else s.ParamProfile = "";
         FillProfiles();
         ScheduleSave();
     }
@@ -1212,10 +1291,32 @@ internal sealed class MainForm : Form
     }
 
     /// <summary>Screenshots for the README (demo mode only).</summary>
-    public void CaptureScreens(string folder)
+    /// <summary>QA only: imitate a high-DPI screen by enlarging every font (pixel sizes already follow Ui.Factor).</summary>
+    void BoostFonts()
+    {
+        var all = new List<(Control c, Font f)>();
+        void Walk(Control c) { all.Add((c, c.Font)); foreach (Control child in c.Controls) Walk(child); }
+        Walk(this);
+        foreach (var (c, f) in all) c.Font = new Font(f.FontFamily, f.Size * Ui.FontBoost, f.Style);
+        if (grid.ColumnHeadersDefaultCellStyle.Font is { } hf)
+            grid.ColumnHeadersDefaultCellStyle.Font = new Font(hf.FontFamily, hf.Size * Ui.FontBoost, hf.Style);
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        base.WndProc(ref m);
+        // QA screenshots: let the window be larger than the build machine's small screen
+        if (demo && m.Msg == 0x0024 /* WM_GETMINMAXINFO */)
+        {
+            System.Runtime.InteropServices.Marshal.WriteInt32(m.LParam, 32, 5000);
+            System.Runtime.InteropServices.Marshal.WriteInt32(m.LParam, 36, 5000);
+        }
+    }
+
+    public void CaptureScreens(string folder, string suffix = "")
     {
         Directory.CreateDirectory(folder);
-        string lang = Lang.Code;
+        string lang = Lang.Code + suffix;
         void Shot(string name)
         {
             for (int i = 0; i < 5; i++) { Application.DoEvents(); Thread.Sleep(60); }
@@ -1233,6 +1334,7 @@ internal sealed class MainForm : Form
         SetMode(1);
         graph.Selected = 3;
         Shot("parametric");
+        if (suffix.Length > 0) { listen.Checked = true; graph.Solo = 3; Shot("listen"); listen.Checked = false; graph.Solo = -1; }
         s.Mode = 0;
         SetMode(0);
         Shot("graphic");

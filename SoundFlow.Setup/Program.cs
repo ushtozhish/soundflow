@@ -15,7 +15,7 @@ internal static class Program
     };
     internal static string L(string ru, string en, string? kk = null) => Ui switch { "en" => en, "kk" => kk ?? ru, _ => ru };
 
-    internal const string Version = "1.4.1";
+    internal const string Version = "1.5.0";
     internal static readonly string InstallDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "SoundFlow");
     internal static readonly string AppPath = Path.Combine(InstallDir, "SoundFlow.exe");
     internal static readonly string ApoDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "EqualizerAPO");

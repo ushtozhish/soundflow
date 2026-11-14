@@ -52,7 +52,8 @@ internal sealed class Router : IDisposable
     {
         lock (gate)
         {
-            wanted = routes.Where(r => r.Key != defaultDeviceId && r.Value.Pairs.Count > 0)
+            // "Custom" = channel remap of a device while it is the Windows default — never a copy target
+            wanted = routes.Where(r => r.Key != defaultDeviceId && !r.Value.Custom && r.Value.Pairs.Count > 0)
                            .ToDictionary(r => r.Key, r => new RouteTarget { Name = r.Value.Name, Gain = r.Value.Gain, Mute = r.Value.Mute, Pairs = [.. r.Value.Pairs] });
             defaultId = defaultDeviceId;
         }
@@ -296,7 +297,7 @@ internal sealed class RouteOutput : IWaveProvider, IDisposable
 /// </summary>
 internal sealed class RouteMatrix : Control
 {
-    int Sc(int v) => (int)Math.Round(v * DeviceDpi / 96f);
+    static int Sc(int v) => Ui.S(v);
     public int RowHeight => Sc(36);
     public int HeaderHeight => Sc(64);
     int Cell => Sc(28);
@@ -315,7 +316,7 @@ internal sealed class RouteMatrix : Control
     public event Action<string, int, int>? Toggled;
     public event Action<string>? ResetRequested;
     (string id, int src, int dst)? hover;
-    readonly Font small = new("Segoe UI", 8), bold = new("Segoe UI", 8.5f, FontStyle.Bold);
+    readonly Font small = new("Segoe UI", Ui.Pt(8)), bold = new("Segoe UI", Ui.Pt(8.5f), FontStyle.Bold);
     readonly ToolTip tip = new();
 
     public RouteMatrix()
