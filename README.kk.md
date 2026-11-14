@@ -9,7 +9,8 @@
 
 <p align="center">Windows 10/11 · тегін · ашық бастапқы код (MIT) · English / Русский / Қазақша<br>
 <a href="https://github.com/ushtozhish/soundflow/actions/workflows/build.yml"><img src="https://github.com/ushtozhish/soundflow/actions/workflows/build.yml/badge.svg" alt="Құрастыру"></a><br>
-<a href="https://github.com/ushtozhish/soundflow/releases/latest"><b>⬇ Орнатушыны жүктеп алу</b></a></p>
+<a href="https://github.com/ushtozhish/soundflow/releases/latest"><b>⬇ Орнатушыны жүктеп алу</b></a><br><br>
+<a href="#️-бауырша-қолда"><img src="docs/support/badge-kk.svg" height="30" alt="❤ Бауырша қолда"></a></p>
 
 ![SoundFlow параметрлік эквалайзері: тірі спектр үстіндегі жылжымалы жолақтары бар қисық](docs/img/parametric-kk.png)
 
@@ -110,11 +111,13 @@
 
 ## ❤️ Бауырша қолда
 
-Бағдарлама тегін әрі ашық бастапқы кодты. Пайдасы тисе — көңіліңнен шыққанынша сал.
-Бұл ерікті және өтеусіз сыйлық: орнына ештеңе берілмейді, бағдарлама бәріне тегін болып қала береді.
+<a href="https://ushtozhish.github.io/support/"><img src="docs/support/support-kk.svg" width="880" alt="Бауырша қолда — Kaspi, қолдау беті"></a>
 
-- 🇰🇿 **Kaspi:** `4400 4303 6234 6964` (аударар алдында атын тексер: Артём В.)
-- 📱 **«Нөмірді көшіру» батырмасы бар бет:** https://ushtozhish.github.io/support/
+> [!TIP]
+> Бағдарлама тегін әрі ашық кодты. Пайдасы тисе, қалағаныңша қолда — бұл ерікті әрі өтеусіз сыйлық, оның орнына ештеңе берілмейді, бағдарлама бәріне тегін болып қала береді.
+>
+> - 🇰🇿 **Kaspi:** `4400 4303 6234 6964` (аударар алдында атын тексер: Артём В.)
+> - 📱 **«Нөмірді көшіру» батырмасы бар бет:** https://ushtozhish.github.io/support/
 
 ## Лицензия
 

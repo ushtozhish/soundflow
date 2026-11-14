@@ -9,7 +9,8 @@ Make films loud and clear at night volume, shape the sound with a parametric EQ,
 
 <p align="center">Windows 10/11 · free · open source (MIT) · English / Русский / Қазақша<br>
 <a href="https://github.com/ushtozhish/soundflow/actions/workflows/build.yml"><img src="https://github.com/ushtozhish/soundflow/actions/workflows/build.yml/badge.svg" alt="Build"></a><br>
-<a href="https://github.com/ushtozhish/soundflow/releases/latest"><b>⬇ Download the installer</b></a></p>
+<a href="https://github.com/ushtozhish/soundflow/releases/latest"><b>⬇ Download the installer</b></a><br><br>
+<a href="#️-support-the-dev"><img src="docs/support/badge-en.svg" height="30" alt="❤ Support the dev"></a></p>
 
 ![SoundFlow parametric equalizer: frequency response with draggable bands over a live spectrum](docs/img/parametric-en.png)
 
@@ -120,13 +121,15 @@ Install the [.NET 10 SDK](https://dotnet.microsoft.com/download) (x64) and run `
 
 ## ❤️ Support the dev
 
-Free and open source. If it helped you, chip in what you like —
-a voluntary gift, nothing in return, the tool stays free for everyone.
+<a href="https://ushtozhish.github.io/support/"><img src="docs/support/support-en.svg" width="880" alt="Support the dev — Kaspi, page with a copy button"></a>
 
-- 🇰🇿 **Kaspi:** `4400 4303 6234 6964` (Artem V. — check the name before sending)
-- 📱 **Page with a copy button:** https://ushtozhish.github.io/support/
-
-> 🇷🇺 **Поддержи по-братски:** Kaspi `4400 4303 6234 6964` (проверь имя: Артём В.). Добровольно и безвозмездно.
+> [!TIP]
+> Free and open source. If it helped you, chip in what you like — a voluntary gift, nothing in return, the tool stays free for everyone.
+>
+> - 🇰🇿 **Kaspi:** `4400 4303 6234 6964` (Artem V. — check the name before sending)
+> - 📱 **Page with a copy button:** https://ushtozhish.github.io/support/
+>
+> 🇷🇺 **Поддержи по-братски:** Kaspi `4400 4303 6234 6964` (проверь имя: Артём В.). Добровольно и безвозмездно. · 🇰🇿 **Бауырша қолда:** [қолдау беті](https://ushtozhish.github.io/support/)
 
 ## License
 

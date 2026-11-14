@@ -9,7 +9,8 @@
 
 <p align="center">Windows 10/11 · бесплатно · открытый код (MIT) · English / Русский / Қазақша<br>
 <a href="https://github.com/ushtozhish/soundflow/actions/workflows/build.yml"><img src="https://github.com/ushtozhish/soundflow/actions/workflows/build.yml/badge.svg" alt="Сборка"></a><br>
-<a href="https://github.com/ushtozhish/soundflow/releases/latest"><b>⬇ Скачать установщик</b></a></p>
+<a href="https://github.com/ushtozhish/soundflow/releases/latest"><b>⬇ Скачать установщик</b></a><br><br>
+<a href="#️-поддержи-по-братски"><img src="docs/support/badge-ru.svg" height="30" alt="❤ Поддержи по-братски"></a></p>
 
 ![Параметрический эквалайзер SoundFlow: кривая с перетаскиваемыми полосами поверх живого спектра](docs/img/parametric-ru.png)
 
@@ -110,11 +111,13 @@
 
 ## ❤️ Поддержи по-братски
 
-Программа бесплатная и с открытым кодом. Если пригодилась — закинь сколько не жалко.
-Это добровольный и безвозмездный подарок: взамен ничего не даётся, программа остаётся бесплатной для всех.
+<a href="https://ushtozhish.github.io/support/"><img src="docs/support/support-ru.svg" width="880" alt="Поддержи по-братски — Kaspi, страница поддержки"></a>
 
-- 🇰🇿 **Kaspi:** `4400 4303 6234 6964` (проверь имя перед переводом: Артём В.)
-- 📱 **Страница с кнопкой «Скопировать номер»:** https://ushtozhish.github.io/support/
+> [!TIP]
+> Программа бесплатная и с открытым кодом. Если помогла — закинь сколько не жалко. Это добровольный и безвозмездный подарок, взамен ничего не даётся, программа остаётся бесплатной для всех.
+>
+> - 🇰🇿 **Kaspi:** `4400 4303 6234 6964` (проверь имя перед переводом: Артём В.)
+> - 📱 **Страница с кнопкой «Скопировать номер»:** https://ushtozhish.github.io/support/
 
 ## Лицензия
 
