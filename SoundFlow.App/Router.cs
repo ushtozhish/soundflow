@@ -301,9 +301,13 @@ internal sealed class RouteMatrix : Control
     public int HeaderHeight => Sc(64);
     int Cell => Sc(28);
     int Gap => Sc(6);
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public Func<string[]>? SourceNames { get; set; }
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public Func<List<OutputDevice>>? Devices { get; set; }
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public Func<string, int, int, bool>? IsOn { get; set; }
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public Func<string, string?>? ErrorOf { get; set; }
     public event Action<string, int, int>? Toggled;
     public event Action<string>? ResetRequested;
