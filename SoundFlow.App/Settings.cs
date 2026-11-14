@@ -15,7 +15,7 @@ internal sealed class Band
     public double Frequency { get; set; } = 1000;
     public double Gain { get; set; }
     public double Q { get; set; } = 1;
-    /// <summary>Only for LP / HP: 12, 24, 36 or 48 dB/oct.</summary>
+    /// <summary>Only for LP / HP: 12…96 dB/oct in steps of 12.</summary>
     public int Slope { get; set; } = 12;
     /// <summary>Empty = all channels, otherwise 1-based channel numbers separated by spaces.</summary>
     public string Channels { get; set; } = "";
@@ -237,7 +237,9 @@ internal static class Store
         b.Frequency = Math.Clamp(double.IsFinite(b.Frequency) ? b.Frequency : 1000, 10, 22000);
         b.Gain = Math.Clamp(double.IsFinite(b.Gain) ? b.Gain : 0, Band.MinGain, Band.MaxGain);
         b.Q = Math.Clamp(double.IsFinite(b.Q) ? b.Q : 1, .1, 30);
-        b.Slope = b.Slope is 12 or 24 or 36 or 48 ? b.Slope : 12;
+        b.Slope = b.Slope is >= 12 and <= 96 && b.Slope % 12 == 0 ? b.Slope : 12;
+        // cuts are Butterworth (no resonant bump at the corner); steepness comes from the slope only
+        if (b.Type is "LP" or "HP") b.Q = 0.7071;
         b.Channels ??= "";
     }
 }

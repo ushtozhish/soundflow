@@ -31,12 +31,13 @@ internal sealed class ParametricGraph : Control
     public event Action<int>? SoloChanged;
     public event Action<int, string>? TypeRequested;
     public event Action<int>? ToggleRequested;
-    public event Action? RangeToggled;
+    public event Action<int>? RangeChosen;
 
     int selected = -1, hover = -1, qHandle, solo = -1;
     bool dragging;
     Point dragStart;
     double startFrequency, startGain, startQ;
+    int startSlope;
     int range = 12;
     readonly Font tiny = new("Segoe UI", 7.5f), info = new("Segoe UI", 9, FontStyle.Bold);
 
@@ -60,8 +61,10 @@ internal sealed class ParametricGraph : Control
     }
 
     List<Band> Bands => BandsProvider?.Invoke() ?? [];
-    RectangleF Plot => new(46, 12, Math.Max(20, Width - 62), Math.Max(20, Height - 38));
-    RectangleF RangeButton => new(4, Height - 22, 40, 18);
+    RectangleF Plot => new(52, 30, Math.Max(20, Width - 68), Math.Max(20, Height - 56));
+    /// <summary>The dB-scale button sits at the top of the dB axis: "±12 dB ▾".</summary>
+    RectangleF RangeButton => new(4, 4, 74, 22);
+    bool rangeHover;
 
     float X(double f) { var p = Plot; return p.Left + (float)(Math.Log10(Math.Clamp(f, 20, 20000) / 20d) / 3d) * p.Width; }
     double FrequencyAt(float x) { var p = Plot; return 20 * Math.Pow(1000, Math.Clamp((x - p.Left) / p.Width, 0, 1)); }
@@ -91,12 +94,15 @@ internal sealed class ParametricGraph : Control
         {
             float y = Y(db);
             g.DrawLine(db == 0 ? major : grid, p.Left, y, p.Right, y);
-            g.DrawString(db > 0 ? "+" + db : db.ToString(), tiny, text, 5, y - 6);
+            g.DrawString(db > 0 ? "+" + db : db.ToString(), tiny, text, 8, y - 6);
         }
-        // range toggle
+        // dB-scale button
         var rb = RangeButton;
-        using (var rbBrush = new SolidBrush(Color.FromArgb(34, 37, 45))) g.FillRoundedRectangle(rbBrush, rb, 4);
-        g.DrawString($"±{range}", tiny, Brushes.Gainsboro, rb.X + 7, rb.Y + 3);
+        using (var rbBrush = new SolidBrush(rangeHover ? Color.FromArgb(60, 66, 80) : Color.FromArgb(38, 42, 52))) g.FillRoundedRectangle(rbBrush, rb, 5);
+        using (var rbPen = new Pen(rangeHover ? Color.FromArgb(200, 255, 56) : Color.FromArgb(80, 86, 100))) g.DrawRoundedRectangle(rbPen, rb, 5);
+        var rbText = $"±{range} dB ▾";
+        var rbSize = g.MeasureString(rbText, info);
+        g.DrawString(rbText, info, Brushes.White, rb.X + (rb.Width - rbSize.Width) / 2, rb.Y + (rb.Height - rbSize.Height) / 2);
 
         DrawSpectrum(g, p);
 
@@ -130,7 +136,8 @@ internal sealed class ParametricGraph : Control
             using var brush = new SolidBrush(color);
             g.FillEllipse(brush, x - 6, y - 6, 12, 12);
             g.DrawString((i + 1).ToString(), tiny, Brushes.White, x - 4, y + 7);
-            if (i == selected) DrawQHandles(g, x, y, b.Q, color);
+            if (i == selected && !IsCut(b)) DrawQHandles(g, x, y, b.Q, color);
+            if (i == selected && IsCut(b)) DrawSlopeHint(g, x, y, color);
             if (i == hover || i == selected)
             {
                 using var ring = new Pen(i == solo ? Color.Gold : Color.White, 2);
@@ -144,8 +151,8 @@ internal sealed class ParametricGraph : Control
             var b = bands[bubbleIndex];
             float x = X(b.Frequency), y = Y(HandleGain(b));
             string gain = Band.HasGain(b.Type) ? $"   {b.Gain:+0.0;-0.0;0.0} dB" : "";
-            string slope = b.Type is "LP" or "HP" ? $"   {b.Slope} " + L("dB/окт", "dB/oct", "dB/окт") : "";
-            string s = $"{bubbleIndex + 1}  {TypeName(b.Type)}   {FormatHz(b.Frequency)}{gain}   Q {b.Q:0.00}{slope}{(bubbleIndex == solo ? L("   СОЛО", "   SOLO", "   СОЛО") : "")}";
+            string slope = IsCut(b) ? $"   {b.Slope} dB/oct" : $"   Q {b.Q:0.00}";
+            string s = $"{bubbleIndex + 1}  {TypeName(b.Type)}   {FormatHz(b.Frequency)}{gain}{slope}{(bubbleIndex == solo ? L("   СОЛО", "   SOLO", "   СОЛО") : "")}";
             var size = g.MeasureString(s, info);
             float bx = Math.Clamp(x - size.Width / 2 - 8, p.Left, Math.Max(p.Left, p.Right - size.Width - 16));
             float by = y - 44 < p.Top ? y + 16 : y - 44;
@@ -160,11 +167,21 @@ internal sealed class ParametricGraph : Control
 
     public static string FormatHz(double f) => f >= 1000 ? $"{f / 1000:0.##} " + L("кГц", "kHz", "кГц") : $"{f:0.#} " + L("Гц", "Hz", "Гц");
 
+    /// <summary>Filter type names are the same English terms in every language (author's decision).</summary>
     public static string TypeName(string type) => type switch
     {
-        "LS" => L("Низкая полка", "Low shelf", "Төменгі сөре"), "HS" => L("Высокая полка", "High shelf", "Жоғарғы сөре"), "LP" => L("Срез верхов", "Low-pass", "Жоғарыны кесу"),
-        "HP" => L("Срез низов", "High-pass", "Төменгіні кесу"), "NO" => L("Режекция (вырез)", "Notch", "Режекция (ойық)"), "BP" => L("Полосовой", "Band-pass", "Жолақтық"), _ => L("Колокол", "Bell", "Қоңырау"),
+        "LS" => "Low shelf", "HS" => "High shelf", "LP" => "Low-pass", "HP" => "High-pass", "NO" => "Notch", "BP" => "Band-pass", _ => "Bell",
     };
+
+    static bool IsCut(Band b) => b.Type is "LP" or "HP";
+
+    /// <summary>Under a cut's dot: small up/down marks — drag vertically or use the wheel to change the slope.</summary>
+    void DrawSlopeHint(Graphics g, float x, float y, Color color)
+    {
+        using var b = new SolidBrush(color);
+        g.FillPolygon(b, new PointF[] { new(x, y - 22), new(x - 6, y - 14), new(x + 6, y - 14) });
+        g.FillPolygon(b, new PointF[] { new(x, y + 30), new(x - 6, y + 22), new(x + 6, y + 22) });
+    }
 
     const int SpectrumPoints = 240;
     readonly double[] peakHold = new double[SpectrumPoints];
@@ -265,7 +282,7 @@ internal sealed class ParametricGraph : Control
     int HitQHandle(Point pt)
     {
         var bands = Bands;
-        if (selected < 0 || selected >= bands.Count) return 0;
+        if (selected < 0 || selected >= bands.Count || IsCut(bands[selected])) return 0;
         var b = bands[selected];
         float x = X(b.Frequency), y = Y(HandleGain(b)), r = HandleRadius(b.Q);
         if (Math.Abs(pt.Y - y) > 12) return 0;
@@ -278,7 +295,7 @@ internal sealed class ParametricGraph : Control
     {
         base.OnMouseDown(e);
         Focus();
-        if (e.Button == MouseButtons.Left && RangeButton.Contains(e.Location)) { RangeToggled?.Invoke(); return; }
+        if (e.Button == MouseButtons.Left && RangeButton.Contains(e.Location)) { ShowRangeMenu(); return; }
         var bands = Bands;
         qHandle = e.Button == MouseButtons.Left ? HitQHandle(e.Location) : 0;
         int index = qHandle != 0 ? selected : Hit(e.Location);
@@ -305,6 +322,7 @@ internal sealed class ParametricGraph : Control
         startFrequency = bands[index].Frequency;
         startGain = bands[index].Gain;
         startQ = bands[index].Q;
+        startSlope = bands[index].Slope;
         if ((ModifierKeys & Keys.Control) != 0) SetSolo(index);
         Invalidate();
     }
@@ -315,7 +333,9 @@ internal sealed class ParametricGraph : Control
         if (!dragging)
         {
             int h = Hit(e.Location);
-            Cursor = h >= 0 ? Cursors.Hand : HitQHandle(e.Location) != 0 ? Cursors.SizeWE : Cursors.Cross;
+            bool overRange = RangeButton.Contains(e.Location);
+            if (overRange != rangeHover) { rangeHover = overRange; Invalidate(); }
+            Cursor = h >= 0 || overRange ? Cursors.Hand : HitQHandle(e.Location) != 0 ? Cursors.SizeWE : Cursors.Cross;
             if (h != hover) { hover = h; Invalidate(); }
             return;
         }
@@ -339,6 +359,12 @@ internal sealed class ParametricGraph : Control
                 float y = (float)(Y(startGain) + (e.Y - dragStart.Y) * scale);
                 b.Gain = Math.Round(GainAt(y) * (fine ? 10 : 2)) / (fine ? 10 : 2);
             }
+            else if (IsCut(b))
+            {
+                // drag down = steeper cut, up = gentler (12 dB/oct steps, every ~28 px)
+                int steps = (int)Math.Round((e.Y - dragStart.Y) * scale / 28);
+                b.Slope = Math.Clamp(startSlope + steps * 12, 12, 96);
+            }
         }
         BandChanged?.Invoke(selected);
         Invalidate();
@@ -356,11 +382,6 @@ internal sealed class ParametricGraph : Control
         Invalidate();
     }
 
-    protected override void OnMouseLeave(EventArgs e)
-    {
-        base.OnMouseLeave(e);
-        if (!dragging && hover != -1) { hover = -1; Invalidate(); }
-    }
 
     protected override void OnMouseDoubleClick(MouseEventArgs e)
     {
@@ -380,8 +401,12 @@ internal sealed class ParametricGraph : Control
         if (index < 0 || index >= bands.Count) return;
         if (e is HandledMouseEventArgs h) h.Handled = true;
         var b = bands[index];
-        double factor = (ModifierKeys & Keys.Shift) != 0 ? 1.03 : 1.12;
-        b.Q = Math.Round(Math.Clamp(b.Q * Math.Pow(factor, e.Delta / 120d), .1, 30), 2);
+        if (IsCut(b)) b.Slope = Math.Clamp(b.Slope + Math.Sign(e.Delta) * 12, 12, 96);
+        else
+        {
+            double factor = (ModifierKeys & Keys.Shift) != 0 ? 1.03 : 1.12;
+            b.Q = Math.Round(Math.Clamp(b.Q * Math.Pow(factor, e.Delta / 120d), .1, 30), 2);
+        }
         if (index != selected) { selected = index; SelectionChanged?.Invoke(index); }
         BandChanged?.Invoke(index);
         EditFinished?.Invoke();
@@ -403,6 +428,8 @@ internal sealed class ParametricGraph : Control
             case Keys.Left: b.Frequency = Math.Clamp(b.Frequency / Math.Pow(2, fine ? 1 / 48d : 1 / 12d), 10, 22000); break;
             case Keys.Right: b.Frequency = Math.Clamp(b.Frequency * Math.Pow(2, fine ? 1 / 48d : 1 / 12d), 10, 22000); break;
             case Keys.Up when Band.HasGain(b.Type): b.Gain = Math.Clamp(b.Gain + (fine ? .1 : .5), Band.MinGain, Band.MaxGain); break;
+            case Keys.Up when IsCut(b): b.Slope = Math.Max(12, b.Slope - 12); break;
+            case Keys.Down when IsCut(b): b.Slope = Math.Min(96, b.Slope + 12); break;
             case Keys.Down when Band.HasGain(b.Type): b.Gain = Math.Clamp(b.Gain - (fine ? .1 : .5), Band.MinGain, Band.MaxGain); break;
             default: return;
         }
@@ -411,6 +438,28 @@ internal sealed class ParametricGraph : Control
         e.Handled = true;
         BandChanged?.Invoke(selected);
         EditFinished?.Invoke();
+        Invalidate();
+    }
+
+    void ShowRangeMenu()
+    {
+        var menu = new ContextMenuStrip();
+        foreach (var v in new[] { 12, 24, 48 })
+        {
+            int value = v;
+            var item = new ToolStripMenuItem($"±{v} dB") { Checked = range == v };
+            item.Click += (_, _) => RangeChosen?.Invoke(value);
+            menu.Items.Add(item);
+        }
+        menu.Closed += (_, _) => BeginInvoke(new Action(menu.Dispose));
+        menu.Show(this, new Point((int)RangeButton.Left, (int)RangeButton.Bottom + 2));
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        rangeHover = false;
+        if (!dragging && hover != -1) hover = -1;
         Invalidate();
     }
 
@@ -444,6 +493,18 @@ internal sealed class ParametricGraph : Control
 
 internal static class GraphicsExtensions
 {
+    public static void DrawRoundedRectangle(this Graphics g, Pen pen, RectangleF r, float radius)
+    {
+        using var path = new GraphicsPath();
+        float d = radius * 2;
+        path.AddArc(r.X, r.Y, d, d, 180, 90);
+        path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+        path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+        path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+        path.CloseFigure();
+        g.DrawPath(pen, path);
+    }
+
     public static void FillRoundedRectangle(this Graphics g, Brush brush, RectangleF r, float radius)
     {
         using var path = new GraphicsPath();

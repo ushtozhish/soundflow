@@ -44,7 +44,8 @@ The line at the bottom shows how far the result is above or below 0 dB.
 | Action | What happens |
 |---|---|
 | Drag a dot | frequency and gain |
-| Side arrows / mouse wheel | band width (Q) |
+| Side arrows / mouse wheel | band width (Q); on High-pass / Low-pass — the slope |
+| Drag a High-pass / Low-pass dot up or down | gentler / steeper cut (12–96 dB/oct) |
 | Shift + drag / wheel | fine adjustment |
 | Ctrl + drag | listen to this band alone (solo) |
 | Double-click the graph | add a band |
@@ -53,11 +54,11 @@ The line at the bottom shows how far the result is above or below 0 dB.
 | Shift + right-click | filter type |
 | ← → ↑ ↓ | nudge frequency / gain |
 | Ctrl+Z / Ctrl+Y | undo / redo |
-| `±12` button (bottom left) | graph scale ±12 / ±24 / ±48 dB |
+| `±12 dB ▾` button (top left) | graph scale ±12 / ±24 / ±48 dB |
 
 Behind the curve runs a **live spectrum** of what the computer is playing: the blue area is the current level, the light line holds the peaks for a second and then lets them fall — so you see exactly which frequencies stick out and how your changes affect them.
 
-Filter types: bell, low/high shelf, high-pass and low-pass with 12–48 dB/oct slopes, notch, band-pass. A band can go down to −60 dB; **notch** silences a single frequency completely (hum, whine). Every band can be limited to one channel (e.g. only the subwoofer). The table under the graph gives exact numbers.
+Filter types: Bell, Low shelf, High shelf, High-pass and Low-pass (12–96 dB/oct, no resonant bump), Notch, Band-pass. A band can go down to −60 dB; **notch** silences a single frequency completely (hum, whine). Every band can be limited to one channel (e.g. only the subwoofer). The table under the graph gives exact numbers.
 
 ### 3. Graphic EQ
 

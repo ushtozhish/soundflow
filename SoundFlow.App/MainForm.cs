@@ -280,7 +280,7 @@ internal sealed class MainForm : Form
         var controls = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, AutoSize = true, Margin = new(0, 0, 0, 6) };
         controls.ColumnStyles.Add(new(SizeType.AutoSize));
         controls.ColumnStyles.Add(new(SizeType.Percent, 100));
-        controls.ColumnStyles.Add(new(SizeType.Absolute, 90));
+        controls.ColumnStyles.Add(new(SizeType.AutoSize));
         controls.ColumnStyles.Add(new(SizeType.AutoSize));
         controls.Controls.Add(new Label { Text = L("ПРЕДУСИЛЕНИЕ", "PREAMP", "АЛДЫН АЛА КҮШЕЙТУ"), ForeColor = Muted, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new(0, 0, 10, 0) }, 0, 0);
         preamp.Minimum = -24;
@@ -299,6 +299,8 @@ internal sealed class MainForm : Form
         };
         controls.Controls.Add(preamp, 1, 0);
         preampValue.AutoSize = true;
+        preampValue.MinimumSize = new(Scale(84), 0);
+        preampValue.Margin = new(10, 0, 10, 0);
         preampValue.Anchor = AnchorStyles.Left;
         preampValue.Font = new("Segoe UI", 10, FontStyle.Bold);
         controls.Controls.Add(preampValue, 2, 0);
@@ -393,13 +395,21 @@ internal sealed class MainForm : Form
     }
 
     static string EnabledText(bool on) => on ? L("  ОБРАБОТКА ВКЛЮЧЕНА", "  PROCESSING ON", "  ӨҢДЕУ ҚОСУЛЫ") : L("  ОБРАБОТКА ВЫКЛЮЧЕНА", "  PROCESSING OFF", "  ӨҢДЕУ ӨШІРУЛІ");
-    static string SlopeText(int slope) => $"{slope} " + L("dB/окт", "dB/oct", "dB/окт");
+    static string SlopeText(int slope) => $"{slope} dB/oct";
 
-    static Button IconButton(string icon) => new()
+    /// <summary>Square icon button drawn with the Windows icon font (Segoe Fluent Icons on 11, Segoe MDL2 Assets on 10).</summary>
+    Button IconButton(string glyph, int height)
     {
-        Text = icon, Size = new(40, 32), FlatStyle = FlatStyle.Flat, ForeColor = Color.Gainsboro, Margin = new(6, 0, 0, 0),
-        Font = new("Segoe UI Symbol", 13, FontStyle.Bold), BackColor = Color.FromArgb(22, 24, 30), TextAlign = ContentAlignment.MiddleCenter,
-    };
+        string family = FontFamily.Families.Any(f => f.Name == "Segoe Fluent Icons") ? "Segoe Fluent Icons" : "Segoe MDL2 Assets";
+        var b = new Button
+        {
+            Text = glyph, AutoSize = false, Size = new(height + Scale(6), height), FlatStyle = FlatStyle.Flat, ForeColor = Color.Gainsboro,
+            Margin = new(6, 0, 0, 0), Padding = Padding.Empty, Font = new(family, 10.5f), BackColor = Color.FromArgb(22, 24, 30),
+            TextAlign = ContentAlignment.MiddleCenter, UseCompatibleTextRendering = false,
+        };
+        b.FlatAppearance.BorderColor = Color.FromArgb(70, 75, 88);
+        return b;
+    }
 
     CheckBox ToggleButton(string text, Color onColor, bool on, string tip)
     {
@@ -416,11 +426,16 @@ internal sealed class MainForm : Form
         return b;
     }
 
-    static Button SmallButton(string text, Color color) => new()
+    static Button SmallButton(string text, Color color)
     {
-        Text = text, AutoSize = true, FlatStyle = FlatStyle.Flat, ForeColor = color, Margin = new(6, 0, 0, 0),
-        Anchor = AnchorStyles.Left, BackColor = Color.FromArgb(22, 24, 30),
-    };
+        var b = new Button
+        {
+            Text = text, AutoSize = true, FlatStyle = FlatStyle.Flat, ForeColor = color, Margin = new(6, 0, 0, 0), Padding = new(6, 2, 6, 2),
+            Anchor = AnchorStyles.Left, BackColor = Color.FromArgb(22, 24, 30),
+        };
+        b.FlatAppearance.BorderColor = Color.FromArgb(Math.Min(255, color.R / 2 + 40), Math.Min(255, color.G / 2 + 40), Math.Min(255, color.B / 2 + 40));
+        return b;
+    }
 
     Button ModeButton(string text) => new()
     {
@@ -489,7 +504,7 @@ internal sealed class MainForm : Form
         graph.SoloChanged += i => { soloBand = i; Apply(); };
         graph.TypeRequested += (i, t) => { if (i < s.Parametric.Count) { s.Parametric[i].Type = t; UpdateGridRow(i); Changed(); ScheduleSave(); } };
         graph.ToggleRequested += i => { if (i < s.Parametric.Count) { s.Parametric[i].Enabled = !s.Parametric[i].Enabled; UpdateGridRow(i); Changed(); ScheduleSave(); } };
-        graph.RangeToggled += () => { s.DisplayRange = s.DisplayRange switch { 12 => 24, 24 => 48, _ => 12 }; graph.Range = s.DisplayRange; ScheduleSave(); };
+        graph.RangeChosen += value => { s.DisplayRange = value; graph.Range = s.DisplayRange; ScheduleSave(); };
         layout.Controls.Add(graph, 0, 0);
 
         grid.Dock = DockStyle.Fill;
@@ -520,7 +535,8 @@ internal sealed class MainForm : Form
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Gain", HeaderText = L("УСИЛЕНИЕ, dB", "GAIN, dB", "КҮШЕЙТУ, dB"), FillWeight = 70 });
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Q", HeaderText = "Q", FillWeight = 50 });
         var slope = new DataGridViewComboBoxColumn { Name = "Slope", HeaderText = L("КРУТИЗНА", "SLOPE", "ЕҢІС"), FillWeight = 60, FlatStyle = FlatStyle.Flat };
-        slope.Items.AddRange("—", SlopeText(12), SlopeText(24), SlopeText(36), SlopeText(48));
+        slope.Items.Add("—");
+        for (int sl = 12; sl <= 96; sl += 12) slope.Items.Add(SlopeText(sl));
         grid.Columns.Add(slope);
         grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Ch", HeaderText = L("КАНАЛЫ", "CHANNELS", "АРНАЛАР"), FillWeight = 70, FlatStyle = FlatStyle.Flat });
         grid.CurrentCellDirtyStateChanged += (_, _) => { if (grid.IsCurrentCellDirty && grid.CurrentCell is DataGridViewComboBoxCell or DataGridViewCheckBoxCell) grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
@@ -542,9 +558,10 @@ internal sealed class MainForm : Form
         add.Click += (_, _) => AddBand(new Band { Type = "PK", Frequency = 1000, Q = 1 });
         var remove = SmallButton(L("− Удалить выбранную", "− Remove selected", "− Таңдалғанды жою"), Color.FromArgb(255, 130, 120));
         remove.Click += (_, _) => { if (grid.CurrentRow is { } r) RemoveBand(r.Index); };
-        var undo = IconButton("↶");
+        int rowHeight = add.PreferredSize.Height;
+        var undo = IconButton("\uE7A7", rowHeight);
         undo.Click += (_, _) => Undo();
-        var redo = IconButton("↷");
+        var redo = IconButton("\uE7A6", rowHeight);
         redo.Click += (_, _) => Redo();
         tips.SetToolTip(undo, L("Отменить (Ctrl+Z)", "Undo (Ctrl+Z)", "Болдырмау (Ctrl+Z)"));
         tips.SetToolTip(redo, L("Вернуть (Ctrl+Y)", "Redo (Ctrl+Y)", "Қайтару (Ctrl+Y)"));
@@ -871,8 +888,8 @@ internal sealed class MainForm : Form
             bool hasGain = Band.HasGain(b.Type), isCut = b.Type is "LP" or "HP";
             r.Cells["Gain"].Value = hasGain ? b.Gain.ToString("0.##", CultureInfo.CurrentCulture) : "—";
             r.Cells["Gain"].ReadOnly = !hasGain;
-            r.Cells["Q"].Value = isCut && b.Slope > 12 ? L("авто", "auto", "авто") : b.Q.ToString("0.##", CultureInfo.CurrentCulture);
-            r.Cells["Q"].ReadOnly = isCut && b.Slope > 12;
+            r.Cells["Q"].Value = isCut ? "—" : b.Q.ToString("0.##", CultureInfo.CurrentCulture);
+            r.Cells["Q"].ReadOnly = isCut;
             r.Cells["Slope"].Value = isCut ? SlopeText(b.Slope) : "—";
             r.Cells["Slope"].ReadOnly = !isCut;
             var label = ChannelLabel(b.Channels);
@@ -921,7 +938,7 @@ internal sealed class MainForm : Form
         b.Type = new[] { "PK", "LS", "HS", "HP", "LP", "NO", "BP" }.FirstOrDefault(t => ParametricGraph.TypeName(t) == typeName) ?? b.Type;
         b.Frequency = ParseNumber(r.Cells["Fc"].Value, b.Frequency);
         if (Band.HasGain(b.Type)) b.Gain = ParseNumber(r.Cells["Gain"].Value, b.Gain);
-        if (!(b.Type is "LP" or "HP" && b.Slope > 12)) b.Q = ParseNumber(r.Cells["Q"].Value, b.Q);
+        if (b.Type is not ("LP" or "HP")) b.Q = ParseNumber(r.Cells["Q"].Value, b.Q);
         if (r.Cells["Slope"].Value?.ToString() is { } sl && int.TryParse(sl.Split(' ')[0], out int slopeValue)) b.Slope = slopeValue;
         b.Channels = ChannelValue(r.Cells["Ch"].Value?.ToString() ?? L("Все", "All", "Барлығы"));
         Store.NormalizeBand(b);

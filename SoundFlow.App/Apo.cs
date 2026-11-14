@@ -215,8 +215,8 @@ internal static class Filters
     /// <summary>Q values of cascaded 2nd-order sections for LP/HP. 12 dB/oct = one section with the user's Q.</summary>
     public static double[] SectionQs(Band b)
     {
-        int n = b.Slope / 12;
-        if (n <= 1) return [b.Q];
+        int n = Math.Max(1, b.Slope / 12);
+        if (n == 1) return [0.7071];
         var qs = new double[n];
         for (int k = 1; k <= n; k++) qs[k - 1] = 1 / (2 * Math.Cos((2 * k - 1) * Math.PI / (4 * n)));
         return qs;
