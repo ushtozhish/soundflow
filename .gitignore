@@ -1,0 +1,10 @@
+bin/
+obj/
+native-release/
+installer-release/
+/SoundFlow.exe
+/SoundFlow-Setup.exe
+*.log
+*.request
+.vs/
+*.user
