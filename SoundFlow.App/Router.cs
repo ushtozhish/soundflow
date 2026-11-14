@@ -241,10 +241,10 @@ internal sealed class RouteOutput : IWaveProvider, IDisposable
         }
     }
 
-    public int Read(byte[] buffer, int offset, int bytes)
+    public int Read(Span<byte> buffer)
     {
-        int frames = bytes / (4 * outChannels);
-        var span = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, float>(buffer.AsSpan(offset, frames * 4 * outChannels));
+        int frames = buffer.Length / (4 * outChannels);
+        var span = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, float>(buffer[..(frames * 4 * outChannels)]);
         lock (gate)
         {
             int capacity = ring.Length / outChannels;
