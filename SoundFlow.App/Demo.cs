@@ -6,11 +6,11 @@ namespace SoundFlow;
 /// </summary>
 internal static class Demo
 {
-    public static DeviceInfo Device => new("demo-realtek", "Realtek(R) Audio", 8);
+    public static DeviceInfo Device => new("demo-realtek", "Realtek(R) Audio", 6);
 
     public static List<OutputDevice> Outputs =>
     [
-        new("demo-realtek", "Realtek(R) Audio", 8, 48000, true),
+        new("demo-realtek", "Realtek(R) Audio", 6, 48000, true),
         new("demo-usb", "USB Audio Device", 2, 48000, false),
         new("demo-hdmi", "LG HDR 4K (NVIDIA High Definition Audio)", 2, 48000, false),
     ];
@@ -36,8 +36,9 @@ internal static class Demo
             ],
         };
         s.Channels[4] = new ChannelTrim { Gain = 3 };
-        s.Channels[7] = new ChannelTrim { Mute = true };
-        s.Routes["demo-realtek"] = new RouteTarget { Name = "Realtek(R) Audio", Custom = true, Pairs = ["1-1", "2-2", "3-3", "4-4", "7-7", "8-8"] };
+        s.Channels[3] = new ChannelTrim { Gain = 1.5 };
+        // 5.1 film: front, center and sub stay on the main card, the rear pair goes to a USB card
+        s.Routes["demo-realtek"] = new RouteTarget { Name = "Realtek(R) Audio", Custom = true, Pairs = ["1-1", "2-2", "3-3", "4-4"] };
         s.Routes["demo-usb"] = new RouteTarget { Name = "USB Audio Device", Pairs = ["5-1", "6-2"], Gain = -2 };
         s.Routes["demo-hdmi"] = new RouteTarget { Name = "LG HDR 4K", Pairs = ["1-1", "2-2"] };
         s.Normalize();

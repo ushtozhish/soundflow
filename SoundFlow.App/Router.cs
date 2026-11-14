@@ -309,6 +309,9 @@ internal sealed class RouteMatrix : Control
     public Func<string, int, int, bool>? IsOn { get; set; }
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public Func<string, string?>? ErrorOf { get; set; }
+    /// <summary>Off for demo screenshots (the mouse of the build machine must not show up).</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public bool HoverEnabled { get; set; } = true;
     public event Action<string, int, int>? Toggled;
     public event Action<string>? ResetRequested;
     (string id, int src, int dst)? hover;
@@ -403,7 +406,7 @@ internal sealed class RouteMatrix : Control
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        var h = HitCell(e.Location);
+        var h = HoverEnabled ? HitCell(e.Location) : null;
         if (h != hover) { hover = h; Invalidate(); }
         Cursor = h is not null || HitHeader(e.Location) is not null ? Cursors.Hand : Cursors.Default;
         string? id = h?.id ?? HitHeader(e.Location);

@@ -1179,6 +1179,7 @@ internal sealed class MainForm : Form
             bmp.Save(Path.Combine(folder, $"{name}-{lang}.png"), System.Drawing.Imaging.ImageFormat.Png);
         }
         updating = true;
+        matrix.HoverEnabled = false;
         tabs.SelectedIndex = 0;
         s.Mode = 1;
         SetMode(1);
