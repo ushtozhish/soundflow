@@ -47,7 +47,7 @@ The line at the bottom shows how far the result is above or below 0 dB.
 | Side arrows / mouse wheel | band width (Q); on High-pass / Low-pass — the slope |
 | Drag a High-pass / Low-pass dot up or down | gentler / steeper cut (12–96 dB/oct) |
 | Shift + drag / wheel | fine adjustment |
-| Ctrl + drag | listen to this band alone (solo) |
+| 🎧 **Listen to band** button | hear only the selected point's frequency range, with its change |
 | Double-click the graph | add a band |
 | Double-click a dot / Delete | remove the band |
 | Right-click a dot | gain back to 0 dB |
@@ -80,7 +80,7 @@ To spread more than two channels, set the main card to 5.1 or 7.1 in Windows (So
 
 ### 5. Profiles, tray, language
 
-- **Profiles**: built-in presets and your own (**Save as…**). Profiles never change the preamp.
+- **Profiles** sit next to the Graphic / Parametric switch, separately for each EQ: built-in presets (parametric: Night movie, Clear dialogue, Deep bass, Remove 50 Hz hum, Air) and your own (**Save as…**). Profiles never change the preamp.
 - ❤ next to the language buttons (and in the tray menu) opens the [support page](https://ushtozhish.github.io/support/).
 - Closing the window keeps SoundFlow running in the tray. Tray menu: on/off, start with Windows, settings and log folder, exit.
 - Language: EN | RU | KZ buttons (top right). On first start it follows the Windows language.
