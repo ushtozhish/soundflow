@@ -286,12 +286,7 @@ internal static class Lang
             "en" => Ui.En,
             "ru" => Ui.Ru,
             "kk" => Ui.Kk,
-            _ => system switch
-            {
-                "kk" => Ui.Kk,
-                "ru" or "be" or "uk" or "ky" or "uz" => Ui.Ru,
-                _ => Ui.En,
-            },
+            _ => system switch { "kk" => Ui.Kk, "ru" => Ui.Ru, _ => Ui.En },
         };
     }
 

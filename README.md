@@ -19,7 +19,7 @@ Make films loud and clear at night volume, shape the sound with a parametric EQ,
 
 - [Why SoundFlow](#why-soundflow)
 - [Tour of the app](#tour-of-the-app): [Preamp](#1-preamp) · [Parametric EQ](#2-parametric-eq) · [Graphic EQ](#3-graphic-eq) · [Routing](#4-routing) · [Profiles, tray, language](#5-profiles-tray-language)
-- [Installation](#installation) · [How it works](#how-it-works) · [Limitations](#limitations) · [Building from source](#building-from-source) · [License](#license)
+- [Installation](#installation) · [How it works](#how-it-works) · [Limitations](#limitations) · [Building from source](#building-from-source) · [Support the dev](#️-support-the-dev) · [License](#license)
 
 ## Why SoundFlow
 
@@ -78,7 +78,7 @@ To spread more than two channels, set the main card to 5.1 or 7.1 in Windows (So
 
 - **Profiles**: built-in presets and your own (**Save as…**). Profiles never change the preamp.
 - Closing the window keeps SoundFlow running in the tray. Tray menu: on/off, start with Windows, settings and log folder, exit.
-- Language: Русский / English / Қазақша (top right). On first start it follows the Windows language.
+- Language: EN | RU | KZ buttons (top right). On first start it follows the Windows language.
 
 ## Installation
 
@@ -114,6 +114,16 @@ Uninstall via Windows "Apps & features": SoundFlow's settings are removed from E
 ## Building from source
 
 Install the [.NET 10 SDK](https://dotnet.microsoft.com/download) (x64) and run `build-installer.cmd`; the result is `SoundFlow-Setup.exe`. Every commit to `main` is built by GitHub Actions; a `vX.Y.Z` tag publishes a release.
+
+## ❤️ Support the dev
+
+Free and open source. If it helped you, chip in what you like —
+a voluntary gift, nothing in return, the tool stays free for everyone.
+
+- 🇰🇿 **Kaspi:** `4400 4303 6234 6964` (Artem V. — check the name before sending)
+- 📱 **Page with a copy button:** https://ushtozhish.github.io/support/
+
+> 🇷🇺 **Поддержи по-братски:** Kaspi `4400 4303 6234 6964` (проверь имя: Артём В.). Добровольно и безвозмездно.
 
 ## License
 

@@ -246,11 +246,22 @@ internal sealed class MainForm : Form
         };
         var right = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, Anchor = AnchorStyles.Right, WrapContents = false };
         right.Controls.Add(enabled);
-        var language = new NoWheelComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110, Anchor = AnchorStyles.Right, Margin = new(0, 6, 0, 0) };
-        string[] codes = ["ru", "en", "kk"];
-        language.Items.AddRange("Русский", "English", "Қазақша");
-        language.SelectedIndex = Array.IndexOf(codes, Lang.Code);
-        language.SelectionChangeCommitted += (_, _) => SwitchLanguage(codes[language.SelectedIndex]);
+        // language switch: EN | RU | KZ
+        var language = new FlowLayoutPanel { AutoSize = true, Anchor = AnchorStyles.Right, Margin = new(0, 6, 0, 0), WrapContents = false };
+        foreach (var (code, label) in new[] { ("en", "EN"), ("ru", "RU"), ("kk", "KZ") })
+        {
+            bool active = Lang.Code == code;
+            var b = new Button
+            {
+                Text = label, AutoSize = true, MinimumSize = new(Scale(38), Scale(26)), FlatStyle = FlatStyle.Flat, Margin = new(0, 0, 2, 0),
+                Font = new("Segoe UI", 8.5f, FontStyle.Bold),
+                BackColor = active ? Acid : Color.FromArgb(30, 33, 40), ForeColor = active ? Color.Black : Color.Gainsboro,
+            };
+            b.FlatAppearance.BorderColor = active ? Acid : Color.FromArgb(60, 64, 74);
+            tips.SetToolTip(b, code switch { "en" => "English", "ru" => "Русский", _ => "Қазақша" });
+            b.Click += (_, _) => SwitchLanguage(code);
+            language.Controls.Add(b);
+        }
         right.Controls.Add(language);
         header.Controls.Add(right, 2, 0);
         root.Controls.Add(header, 0, 0);

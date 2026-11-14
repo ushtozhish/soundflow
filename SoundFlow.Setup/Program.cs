@@ -10,7 +10,7 @@ internal static class Program
     static readonly string Ui = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName switch
     {
         "kk" => "kk",
-        "ru" or "be" or "uk" or "ky" or "uz" => "ru",
+        "ru" => "ru",
         _ => "en",
     };
     internal static string L(string ru, string en, string? kk = null) => Ui switch { "en" => en, "kk" => kk ?? ru, _ => ru };
