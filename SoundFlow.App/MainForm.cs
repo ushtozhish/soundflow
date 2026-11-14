@@ -224,9 +224,9 @@ internal sealed class MainForm : Form
 
         // header
         var header = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, AutoSize = true, Margin = new(0, 0, 0, 6) };
-        header.ColumnStyles.Add(new(SizeType.Percent, 33));
-        header.ColumnStyles.Add(new(SizeType.Percent, 42));
-        header.ColumnStyles.Add(new(SizeType.Percent, 25));
+        header.ColumnStyles.Add(new(SizeType.AutoSize));
+        header.ColumnStyles.Add(new(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new(SizeType.AutoSize));
         header.Controls.Add(new Label { Text = "SOUNDFLOW", AutoSize = true, Font = new("Segoe UI", 23, FontStyle.Bold), ForeColor = Acid, Anchor = AnchorStyles.Left }, 0, 0);
         deviceLabel.AutoSize = false;
         deviceLabel.Dock = DockStyle.Fill;
@@ -254,7 +254,7 @@ internal sealed class MainForm : Form
             bool active = Lang.Code == code;
             var b = new Button
             {
-                Text = label, AutoSize = true, MinimumSize = new(Scale(38), Scale(26)), FlatStyle = FlatStyle.Flat, Margin = new(0, 0, 2, 0),
+                Text = label, AutoSize = false, Size = new(Scale(36), Scale(24)), Padding = Padding.Empty, FlatStyle = FlatStyle.Flat, Margin = new(0, 0, 2, 0),
                 Font = new("Segoe UI", 8.5f, FontStyle.Bold),
                 BackColor = active ? Acid : Color.FromArgb(30, 33, 40), ForeColor = active ? Color.Black : Color.Gainsboro,
             };
@@ -265,7 +265,7 @@ internal sealed class MainForm : Form
         }
         var support = new Button
         {
-            Text = "❤", AutoSize = true, MinimumSize = new(Scale(38), Scale(26)), FlatStyle = FlatStyle.Flat, Margin = new(8, 0, 0, 0),
+            Text = "❤", AutoSize = false, Size = new(Scale(36), Scale(24)), Padding = Padding.Empty, FlatStyle = FlatStyle.Flat, Margin = new(8, 0, 0, 0),
             Font = new("Segoe UI Symbol", 9.5f, FontStyle.Bold), BackColor = Color.FromArgb(30, 33, 40), ForeColor = Color.FromArgb(255, 105, 120),
         };
         support.FlatAppearance.BorderColor = Color.FromArgb(60, 64, 74);
