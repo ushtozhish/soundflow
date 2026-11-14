@@ -10,7 +10,7 @@ internal static class Program
     static readonly bool En = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName is not ("ru" or "kk" or "be" or "uk" or "ky" or "uz");
     internal static string L(string ru, string en) => En ? en : ru;
 
-    internal const string Version = "1.2.0";
+    internal const string Version = "1.3.0";
     internal static readonly string InstallDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "SoundFlow");
     internal static readonly string AppPath = Path.Combine(InstallDir, "SoundFlow.exe");
     internal static readonly string ApoDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "EqualizerAPO");

@@ -32,6 +32,34 @@ internal sealed class ChannelTrim
     public bool Solo { get; set; }
 }
 
+/// <summary>Routing of the Windows default device's channels to one output device.</summary>
+internal sealed class RouteTarget
+{
+    public string Name { get; set; } = "";
+    public double Gain { get; set; }
+    public bool Mute { get; set; }
+    /// <summary>"source-destination" channel pairs, 1-based, e.g. "3-1".</summary>
+    public List<string> Pairs { get; set; } = [];
+    /// <summary>Only for the default device itself: false = every channel goes to itself (normal playback).</summary>
+    public bool Custom { get; set; }
+
+    public bool Has(int src, int dst) => Pairs.Contains($"{src}-{dst}");
+    public void Set(int src, int dst, bool on)
+    {
+        string key = $"{src}-{dst}";
+        Pairs.Remove(key);
+        if (on) Pairs.Add(key);
+    }
+    public IEnumerable<(int Src, int Dst)> Parsed()
+    {
+        foreach (var p in Pairs)
+        {
+            var parts = p.Split('-');
+            if (parts.Length == 2 && int.TryParse(parts[0], out int s) && int.TryParse(parts[1], out int d) && s > 0 && d > 0) yield return (s, d);
+        }
+    }
+}
+
 internal sealed class EqProfile
 {
     public string Name { get; set; } = "";
@@ -55,6 +83,10 @@ internal sealed class Settings
     public List<EqProfile> UserProfiles { get; set; } = [];
     public Dictionary<int, ChannelTrim> Channels { get; set; } = [];
     public bool StartWithWindows { get; set; } = true;
+    /// <summary>Key = output device id.</summary>
+    public Dictionary<string, RouteTarget> Routes { get; set; } = [];
+    /// <summary>Delays the Windows device so it lines up with copies on other cards.</summary>
+    public int MainDelayMs { get; set; }
     public int DisplayRange { get; set; } = 12;
     /// <summary>"" = by Windows language, "ru" or "en".</summary>
     public string Language { get; set; } = "";
@@ -83,6 +115,9 @@ internal sealed class Settings
         Language = Language is "ru" or "en" ? Language : "";
         UserProfiles ??= [];
         Channels ??= [];
+        Routes ??= [];
+        foreach (var r in Routes.Values) { r.Pairs ??= []; r.Name ??= ""; r.Gain = Math.Clamp(r.Gain, -60, 12); }
+        MainDelayMs = Math.Clamp(MainDelayMs, 0, 500);
         Profile ??= "";
     }
 }

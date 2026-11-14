@@ -26,7 +26,7 @@ internal static class Apo
     static string F(double v, string fmt = "0.##") => v.ToString(fmt, CultureInfo.InvariantCulture);
 
     /// <summary>Builds the text of soundflow.txt.</summary>
-    public static string Build(Settings s, double effectivePreamp, int soloBand, int channelCount)
+    public static string Build(Settings s, double effectivePreamp, int soloBand, int channelCount, string deviceId)
     {
         var sb = new StringBuilder();
         sb.Append("# SoundFlow — автоматически создаётся приложением SoundFlow, правки вручную будут перезаписаны\r\n");
@@ -49,6 +49,21 @@ internal static class Apo
             sb.Append($"Preamp: {(silent ? "-200" : F(trim.Gain, "0.0"))} dB\r\n");
         }
         sb.Append("Channel: all\r\n");
+
+        // routing inside the Windows device itself (channel remap) — done by APO, zero latency
+        if (s.Routes.TryGetValue(deviceId, out var self) && self.Custom)
+        {
+            var parts = new List<string>();
+            var pairs = self.Parsed().Where(p => p.Src <= channelCount && p.Dst <= channelCount).ToList();
+            for (int dst = 1; dst <= channelCount; dst++)
+            {
+                var sources = pairs.Where(p => p.Dst == dst).Select(p => p.Src.ToString()).ToList();
+                if (sources.Count == 1 && sources[0] == dst.ToString()) continue;
+                parts.Add($"{dst}={(sources.Count == 0 ? "0" : string.Join("+", sources))}");
+            }
+            if (parts.Count > 0) sb.Append($"Copy: {string.Join(" ", parts)}\r\n");
+        }
+        if (s.MainDelayMs > 0) sb.Append($"Delay: {s.MainDelayMs} ms\r\n");
 
         int n = 1;
         if (s.Mode == 0)

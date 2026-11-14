@@ -61,6 +61,13 @@ internal sealed class MainForm : Form
     readonly DataGridView grid = new();
     readonly NoWheelComboBox profile = new();
     readonly TableLayoutPanel channelTable = new();
+    readonly Panel graphicHost = new(), parametricHost = new();
+    Button? modeGraphic, modeParametric;
+    readonly RouteMatrix matrix = new();
+    readonly FlowLayoutPanel outputStrip = new();
+    readonly Router router = new();
+    readonly Dictionary<string, string> outputErrors = [];
+    List<OutputDevice> outputsList = [];
     readonly Label channelNote = new();
     ToolStripMenuItem? trayEnabled, trayAutostart;
     Font? boldGridFont;
@@ -95,7 +102,7 @@ internal sealed class MainForm : Form
         graph.SpectrumProvider = analyzer.Snapshot;
         applyTimer.Tick += (_, _) => { applyTimer.Stop(); Apply(); };
         saveTimer.Tick += (_, _) => { saveTimer.Stop(); Store.Save(s); Commit(); };
-        visualTimer.Tick += (_, _) => { if (tabs.SelectedIndex == 1 && Visible && WindowState != FormWindowState.Minimized) graph.Invalidate(); };
+        visualTimer.Tick += (_, _) => { if (tabs.SelectedIndex == 0 && s.Mode == 1 && Visible && WindowState != FormWindowState.Minimized) graph.Invalidate(); };
         watchdog.Tick += (_, _) => Watchdog();
         watcher.Changed += () => { try { if (IsHandleCreated) BeginInvoke(new Action(RefreshDevice)); } catch { } };
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
@@ -172,6 +179,7 @@ internal sealed class MainForm : Form
         SystemEvents.SessionEnding -= OnSessionEnding;
         Store.Save(s);
         analyzer.Dispose();
+        router.Dispose();
         watcher.Dispose();
         tray.Visible = false;
         tray.Dispose();
@@ -187,7 +195,7 @@ internal sealed class MainForm : Form
 
     void UpdateAnalyzer()
     {
-        bool want = Visible && WindowState != FormWindowState.Minimized && tabs.SelectedIndex == 1;
+        bool want = Visible && WindowState != FormWindowState.Minimized && tabs.SelectedIndex == 0 && s.Mode == 1;
         if (want) analyzer.Start(); else analyzer.Stop();
     }
 
@@ -286,23 +294,33 @@ internal sealed class MainForm : Form
         tabs.Dock = DockStyle.Fill;
         tabs.Font = new("Segoe UI", 9, FontStyle.Bold);
         tabs.Padding = new(14, 5);
-        var graphicPage = new TabPage(L("ГРАФИЧЕСКИЙ 10-ПОЛОСНЫЙ", "GRAPHIC 10-BAND")) { BackColor = Card, ForeColor = ForeColor, Padding = new(8) };
-        var paramPage = new TabPage(L("ПАРАМЕТРИЧЕСКИЙ", "PARAMETRIC")) { BackColor = Card, ForeColor = ForeColor, Padding = new(8) };
-        var channelsPage = new TabPage(L("КАНАЛЫ", "CHANNELS")) { BackColor = Card, ForeColor = ForeColor, Padding = new(8) };
-        tabs.TabPages.Add(graphicPage);
-        tabs.TabPages.Add(paramPage);
-        tabs.TabPages.Add(channelsPage);
-        tabs.SelectedIndexChanged += (_, _) =>
-        {
-            UpdateAnalyzer();
-            if (updating || tabs.SelectedIndex > 1) return;
-            s.Mode = tabs.SelectedIndex;
-            Changed();
-        };
+        var eqPage = new TabPage(L("ЭКВАЛИЗАЦИЯ", "EQUALIZER")) { BackColor = Card, ForeColor = ForeColor, Padding = new(8) };
+        var routingPage = new TabPage(L("МАРШРУТИЗАЦИЯ", "ROUTING")) { BackColor = Card, ForeColor = ForeColor, Padding = new(8) };
+        tabs.TabPages.Add(eqPage);
+        tabs.TabPages.Add(routingPage);
+        tabs.SelectedIndexChanged += (_, _) => UpdateAnalyzer();
         card.Controls.Add(tabs);
-        BuildGraphic(graphicPage);
-        BuildParametric(paramPage);
-        BuildChannels(channelsPage);
+
+        var eqLayout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1 };
+        eqLayout.RowStyles.Add(new(SizeType.AutoSize));
+        eqLayout.RowStyles.Add(new(SizeType.Percent, 100));
+        eqPage.Controls.Add(eqLayout);
+        var modes = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Margin = new(0, 0, 0, 6) };
+        modeGraphic = ModeButton(L("Графический, 10 полос", "Graphic, 10 bands"));
+        modeParametric = ModeButton(L("Параметрический", "Parametric"));
+        modeGraphic.Click += (_, _) => SetMode(0);
+        modeParametric.Click += (_, _) => SetMode(1);
+        modes.Controls.AddRange([modeGraphic, modeParametric]);
+        eqLayout.Controls.Add(modes, 0, 0);
+        var host = new Panel { Dock = DockStyle.Fill };
+        graphicHost.Dock = DockStyle.Fill;
+        parametricHost.Dock = DockStyle.Fill;
+        host.Controls.Add(graphicHost);
+        host.Controls.Add(parametricHost);
+        eqLayout.Controls.Add(host, 0, 1);
+        BuildGraphic(graphicHost);
+        BuildParametric(parametricHost);
+        BuildRouting(routingPage);
 
         // footer
         var foot = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 6, AutoSize = true, Margin = new(0, 10, 0, 0) };
@@ -372,7 +390,27 @@ internal sealed class MainForm : Form
         Anchor = AnchorStyles.Left, BackColor = Color.FromArgb(22, 24, 30),
     };
 
-    void BuildGraphic(TabPage page)
+    Button ModeButton(string text) => new()
+    {
+        Text = text, AutoSize = true, FlatStyle = FlatStyle.Flat, Padding = new(10, 3, 10, 3), Margin = new(0, 0, 6, 0),
+        Font = new("Segoe UI", 9, FontStyle.Bold),
+    };
+
+    void SetMode(int mode)
+    {
+        if (!updating && s.Mode != mode) { s.Mode = mode; Changed(); }
+        graphicHost.Visible = s.Mode == 0;
+        parametricHost.Visible = s.Mode == 1;
+        foreach (var (b, m) in new[] { (modeGraphic!, 0), (modeParametric!, 1) })
+        {
+            b.BackColor = s.Mode == m ? Acid : Color.FromArgb(30, 33, 40);
+            b.ForeColor = s.Mode == m ? Color.Black : Color.Gainsboro;
+            b.FlatAppearance.BorderColor = s.Mode == m ? Acid : Color.FromArgb(60, 64, 74);
+        }
+        UpdateAnalyzer();
+    }
+
+    void BuildGraphic(Control page)
     {
         var eq = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 10, RowCount = 3 };
         for (int i = 0; i < 10; i++) eq.ColumnStyles.Add(new(SizeType.Percent, 10));
@@ -400,7 +438,7 @@ internal sealed class MainForm : Form
         }
     }
 
-    void BuildParametric(TabPage page)
+    void BuildParametric(Control page)
     {
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1 };
         layout.RowStyles.Add(new(SizeType.Percent, 62));
@@ -488,25 +526,128 @@ internal sealed class MainForm : Form
         layout.Controls.Add(buttons, 0, 2);
     }
 
-    void BuildChannels(TabPage page)
+    void BuildRouting(TabPage page)
     {
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1 };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1 };
         layout.RowStyles.Add(new(SizeType.AutoSize));
         layout.RowStyles.Add(new(SizeType.Percent, 100));
+        layout.RowStyles.Add(new(SizeType.AutoSize));
         page.Controls.Add(layout);
         channelNote.AutoSize = true;
         channelNote.ForeColor = Muted;
-        channelNote.Padding = new(4, 4, 4, 10);
+        channelNote.Padding = new(4, 2, 4, 8);
+        channelNote.MaximumSize = new(1150, 0);
         layout.Controls.Add(channelNote, 0, 0);
-        channelTable.Dock = DockStyle.Fill;
-        channelTable.AutoScroll = true;
+
+        var area = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+        channelTable.Dock = DockStyle.Left;
+        channelTable.Width = Scale(430);
         channelTable.ColumnCount = 5;
-        channelTable.ColumnStyles.Add(new(SizeType.Absolute, 110));
+        channelTable.ColumnStyles.Add(new(SizeType.Absolute, Scale(86)));
         channelTable.ColumnStyles.Add(new(SizeType.Percent, 100));
-        channelTable.ColumnStyles.Add(new(SizeType.Absolute, 80));
+        channelTable.ColumnStyles.Add(new(SizeType.Absolute, Scale(70)));
         channelTable.ColumnStyles.Add(new(SizeType.AutoSize));
         channelTable.ColumnStyles.Add(new(SizeType.AutoSize));
-        layout.Controls.Add(channelTable, 0, 1);
+        var matrixScroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+        matrix.Location = new(0, 0);
+        matrix.SourceNames = () => device.ChannelNames;
+        matrix.Devices = () => outputsList;
+        matrix.IsOn = RouteIsOn;
+        matrix.ErrorOf = id => outputErrors.TryGetValue(id, out var e) ? e : null;
+        matrix.Toggled += ToggleRoute;
+        matrix.ResetRequested += id => { s.Routes.Remove(id); RebuildOutputs(); Changed(); ScheduleSave(); };
+        matrixScroll.Controls.Add(matrix);
+        area.Controls.Add(matrixScroll);
+        area.Controls.Add(channelTable);
+        layout.Controls.Add(area, 0, 1);
+
+        outputStrip.Dock = DockStyle.Fill;
+        outputStrip.AutoSize = true;
+        outputStrip.WrapContents = true;
+        outputStrip.Padding = new(0, 6, 0, 0);
+        layout.Controls.Add(outputStrip, 0, 2);
+        router.OutputStateChanged += (id, error) =>
+        {
+            try
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    if (error is null) outputErrors.Remove(id); else outputErrors[id] = error;
+                    matrix.Invalidate();
+                }));
+            }
+            catch { }
+        };
+    }
+
+    int Scale(int v) => (int)Math.Round(v * DeviceDpi / 96f);
+
+    bool RouteIsOn(string id, int src, int dst)
+    {
+        s.Routes.TryGetValue(id, out var route);
+        if (id == device.Id && (route is null || !route.Custom)) return src == dst;
+        return route?.Has(src, dst) ?? false;
+    }
+
+    void ToggleRoute(string id, int src, int dst)
+    {
+        if (!s.Routes.TryGetValue(id, out var route))
+            s.Routes[id] = route = new RouteTarget { Name = outputsList.FirstOrDefault(o => o.Id == id)?.Name ?? "" };
+        if (id == device.Id && !route.Custom)
+        {
+            route.Custom = true;
+            route.Pairs.Clear();
+            for (int c = 1; c <= device.Channels; c++) route.Set(c, c, true);
+        }
+        route.Set(src, dst, !route.Has(src, dst));
+        if (route.Pairs.Count == 0 && id != device.Id) s.Routes.Remove(id);
+        matrix.Invalidate();
+        RebuildOutputs();
+        Changed();
+        ScheduleSave();
+    }
+
+    void RefreshOutputs()
+    {
+        var list = Router.ListOutputs();
+        bool same = list.Count == outputsList.Count && list.Zip(outputsList).All(p => p.First.Id == p.Second.Id && p.First.Channels == p.Second.Channels && p.First.IsDefault == p.Second.IsDefault);
+        if (same) return;
+        outputsList = list;
+        foreach (var o in list) if (s.Routes.TryGetValue(o.Id, out var r)) r.Name = o.Name;
+        LayoutMatrix();
+        RebuildOutputs();
+    }
+
+    void LayoutMatrix()
+    {
+        matrix.Size = new(matrix.PreferredWidth, matrix.HeaderHeight + device.Channels * matrix.RowHeight + Scale(8));
+        matrix.Invalidate();
+    }
+
+    /// <summary>Level, mute and the Windows-device delay under the matrix.</summary>
+    void RebuildOutputs()
+    {
+        outputStrip.SuspendLayout();
+        outputStrip.Controls.Clear();
+        var delayLabel = new Label { Text = L("Задержка устройства Windows, мс", "Windows device delay, ms"), AutoSize = true, ForeColor = Muted, Margin = new(0, 8, 6, 0) };
+        var delay = new NumericUpDown { Minimum = 0, Maximum = 500, Value = s.MainDelayMs, Width = Scale(64), Margin = new(0, 4, 18, 0) };
+        tips.SetToolTip(delay, L("Звук на другие карты приходит чуть позже (обычно 30–60 мс). Задержите основное устройство на столько же, чтобы всё звучало вместе.",
+                                 "Copies on other cards arrive slightly later (usually 30–60 ms). Delay the main device by the same amount so everything plays together."));
+        delay.ValueChanged += (_, _) => { if (updating) return; s.MainDelayMs = (int)delay.Value; Changed(); };
+        outputStrip.Controls.AddRange([delayLabel, delay]);
+        foreach (var o in outputsList.Where(o => !o.IsDefault && s.Routes.ContainsKey(o.Id)))
+        {
+            var route = s.Routes[o.Id];
+            var name = new Label { Text = o.Name, AutoSize = true, ForeColor = Color.Gainsboro, Margin = new(12, 8, 4, 0), MaximumSize = new(Scale(200), 0) };
+            var bar = new TrackBar { Minimum = -40, Maximum = 12, TickStyle = TickStyle.None, Width = Scale(140), Value = (int)Math.Clamp(Math.Round(route.Gain), -40, 12) };
+            var value = new Label { Text = Db(bar.Value), AutoSize = true, Margin = new(0, 8, 4, 0) };
+            var mute = ToggleButton("M", Bad, route.Mute, L("Заглушить этот выход", "Mute this output"));
+            bar.ValueChanged += (_, _) => { value.Text = Db(bar.Value); route.Gain = bar.Value; Changed(); ScheduleSave(); };
+            ResetOnRightClick(bar);
+            mute.CheckedChanged += (_, _) => { route.Mute = mute.Checked; Changed(); ScheduleSave(); };
+            outputStrip.Controls.AddRange([name, bar, value, mute]);
+        }
+        outputStrip.ResumeLayout();
     }
 
     void RebuildChannels()
@@ -516,14 +657,15 @@ internal sealed class MainForm : Form
         channelTable.RowStyles.Clear();
         var names = device.ChannelNames;
         channelTable.RowCount = names.Length + 1;
+        channelTable.Padding = new(0, matrix.HeaderHeight, 0, 0);
         for (int i = 0; i < names.Length; i++)
         {
             int index = i + 1;
             s.Channels.TryGetValue(index, out var trim);
             trim ??= new ChannelTrim();
-            channelTable.RowStyles.Add(new(SizeType.AutoSize));
+            channelTable.RowStyles.Add(new(SizeType.Absolute, matrix.RowHeight));
             var name = new Label { Text = names[i], AutoSize = true, Anchor = AnchorStyles.Left, Font = new("Segoe UI", 10, FontStyle.Bold), ForeColor = ParametricGraph.ColorOf(i) };
-            var slider = new TrackBar { Minimum = -48, Maximum = 24, TickFrequency = 4, SmallChange = 1, LargeChange = 2, Dock = DockStyle.Fill, Value = (int)Math.Clamp(Math.Round(trim.Gain * 2), -48, 24) };
+            var slider = new TrackBar { Minimum = -48, Maximum = 24, TickStyle = TickStyle.None, SmallChange = 1, LargeChange = 2, Dock = DockStyle.Fill, AutoSize = false, Height = matrix.RowHeight, Value = (int)Math.Clamp(Math.Round(trim.Gain * 2), -48, 24) };
             var value = new Label { Text = Db(slider.Value / 2d), AutoSize = true, Anchor = AnchorStyles.Left };
             var mute = ToggleButton("M", Bad, trim.Mute, L("Заглушить канал (mute)", "Mute channel"));
             var solo = ToggleButton("S", Warn, trim.Solo, L("Слушать только этот канал (solo)", "Listen to this channel alone (solo)"));
@@ -546,10 +688,13 @@ internal sealed class MainForm : Form
         }
         channelTable.RowStyles.Add(new(SizeType.Percent, 100));
         channelTable.ResumeLayout();
-        channelNote.Text = L($"Громкость каждого канала устройства «{device.Name}» ({names.Length} кан.). Работает поверх эквалайзера.  M — заглушить канал, S — слушать только его.\n" +
-                             "Каналов столько, сколько выставлено в Windows: Параметры звука → устройство → Формат / Настроить динамики.",
-                             $"Level of each channel of “{device.Name}” ({names.Length} ch). Applied on top of the EQ.  M — mute the channel, S — listen to it alone.\n" +
-                             "The channel count is what Windows is set to: Sound settings → device → Format / Configure speakers.");
+        LayoutMatrix();
+        channelNote.Text = L($"Слева — каналы устройства Windows «{device.Name}» ({names.Length} кан.): громкость, M — заглушить, S — слушать только его. " +
+                             "Справа — все устройства вывода: клик по кубику отправляет канал на этот выход. Зелёная рамка ◆ — само устройство Windows (там можно переставить каналы местами). " +
+                             "Каналов столько, сколько выставлено в Windows: Параметры звука → устройство → Настроить динамики (например, 7.1).",
+                             $"Left — channels of the Windows device “{device.Name}” ({names.Length} ch): level, M — mute, S — solo. " +
+                             "Right — every output device: click a cube to send the channel to that output. ◆ marks the Windows device itself (you can swap channels there). " +
+                             "The channel count is what Windows is set to: Sound settings → device → Configure speakers (e.g. 7.1).");
     }
 
     ChannelTrim Trim(int index)
@@ -576,10 +721,11 @@ internal sealed class MainForm : Form
                 graphic[i].Value = (int)Math.Clamp(Math.Round(s.Graphic[i] * 2), -24, 24);
                 graphicValues[i].Text = (graphic[i].Value > 0 ? "+" : "") + (graphic[i].Value / 2d).ToString("0.0");
             }
-            if (tabs.SelectedIndex != 2) tabs.SelectedIndex = s.Mode;
+            SetMode(s.Mode);
             graph.Range = s.DisplayRange;
             RebuildGrid();
             RebuildChannels();
+            RebuildOutputs();
             FillProfiles();
         }
         finally { updating = false; }
@@ -896,11 +1042,12 @@ internal sealed class MainForm : Form
 
     void Apply(bool force = false)
     {
+        try { router.Update(s.Routes, device.Id); } catch (Exception ex) { Log.Error("Маршрутизация", ex); }
         if (holdApply && !force) return;
         try
         {
             double peak = EqPeak();
-            var text = Apo.Build(s, EffectivePreamp(peak), soloBand, device.Channels);
+            var text = Apo.Build(s, EffectivePreamp(peak), soloBand, device.Channels, device.Id);
             lastWrite = Apo.Write(text);
             if (lastWrite != ApoWriteResult.Ok) Log.Info($"Запись конфига APO: {lastWrite}");
         }
@@ -954,6 +1101,7 @@ internal sealed class MainForm : Form
         device = watcher.Current();
         apoAttached = Apo.IsAttached(device.Id);
         deviceLabel.Text = L("УСТРОЙСТВО ПО УМОЛЧАНИЮ", "DEFAULT DEVICE") + $"\n{device.Name} · {device.Channels} " + L("кан.", "ch");
+        RefreshOutputs();
         if (previous.Id != device.Id || previous.Channels != device.Channels)
         {
             Log.Info($"Устройство: {device.Name}, каналов {device.Channels}, APO подключён: {apoAttached?.ToString() ?? "неизвестно"}");
@@ -968,9 +1116,10 @@ internal sealed class MainForm : Form
 
     void Watchdog()
     {
+        RefreshOutputs();
         if (holdApply) return;
         // Something (APO reinstall, another tool) replaced our config — put it back.
-        var expected = Apo.Build(s, EffectivePreamp(EqPeak()), soloBand, device.Channels);
+        var expected = Apo.Build(s, EffectivePreamp(EqPeak()), soloBand, device.Channels, device.Id);
         if (Apo.ReadCurrent() != expected) { Log.Info("Конфиг APO отличается от ожидаемого — восстанавливаю"); Apply(force: true); }
         var attached = Apo.IsAttached(device.Id);
         if (attached != apoAttached) { apoAttached = attached; UpdateStatus(); }
