@@ -119,6 +119,7 @@ internal sealed class MainForm : Form
         BuildUi();
         BuildTray();
         if (Ui.FontBoost != 1) BoostFonts();
+        listen.Width = TextRenderer.MeasureText(listen.Text, listen.Font).Width + Scale(28);
 
         graph.BandsProvider = () => s.Parametric;
         graph.SpectrumProvider = demo ? Demo.Spectrum : analyzer.Snapshot;
@@ -364,12 +365,13 @@ internal sealed class MainForm : Form
         modeGraphic.Click += (_, _) => SetMode(0);
         modeParametric.Click += (_, _) => SetMode(1);
         modes.Controls.AddRange([modeGraphic, modeParametric]);
-        var top = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, Margin = new(0, 0, 0, 6) };
-        top.ColumnStyles.Add(new(SizeType.Percent, 100));
-        top.ColumnStyles.Add(new(SizeType.AutoSize));
-        modes.Margin = Padding.Empty;
-        top.Controls.Add(modes, 0, 0);
-        var bar = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Anchor = AnchorStyles.Right, Margin = Padding.Empty };
+        // one flowing row: mode switch, then the profile bar; on a narrow window the bar moves to a second line
+        var top = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true, Margin = new(0, 0, 0, 6) };
+        modes.WrapContents = false;
+        modes.Dock = DockStyle.None;
+        modes.Margin = new(0, 0, Scale(24), 4);
+        top.Controls.Add(modes);
+        var bar = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new(0, 0, 0, 4) };
         bar.Controls.Add(new Label { Text = L("ПРОФИЛЬ", "PROFILE", "ПРОФИЛЬ"), ForeColor = Muted, AutoSize = true, Margin = new(0, Scale(7), 8, 0) });
         profile.DropDownStyle = ComboBoxStyle.DropDownList;
         profile.Width = Scale(210);
@@ -381,7 +383,7 @@ internal sealed class MainForm : Form
         var deleteProfile = SmallButton(L("Удалить", "Delete", "Жою"), Color.FromArgb(255, 130, 120));
         deleteProfile.Click += (_, _) => DeleteProfile();
         bar.Controls.AddRange([saveProfile, deleteProfile]);
-        top.Controls.Add(bar, 1, 0);
+        top.Controls.Add(bar);
         eqLayout.Controls.Add(top, 0, 0);
         var host = new Panel { Dock = DockStyle.Fill };
         graphicHost.Dock = DockStyle.Fill;
@@ -617,11 +619,11 @@ internal sealed class MainForm : Form
         tips.SetToolTip(redo, L("Вернуть (Ctrl+Y)", "Redo (Ctrl+Y)", "Қайтару (Ctrl+Y)"));
         listen.Text = L("🎧 Слушать полосу", "🎧 Listen to band", "🎧 Жолақты тыңдау");
         listen.Appearance = Appearance.Button;
-        listen.AutoSize = true;
+        listen.AutoSize = false;
         listen.FlatStyle = FlatStyle.Flat;
         listen.Padding = new(6, 2, 6, 2);
         listen.Margin = new(18, 0, 0, 0);
-        listen.MinimumSize = new(0, rowHeight);
+        listen.Size = new(TextRenderer.MeasureText(listen.Text, listen.Font).Width + Scale(28), rowHeight);
         listen.TextAlign = ContentAlignment.MiddleCenter;
         listen.FlatAppearance.BorderColor = Color.FromArgb(150, 130, 60);
         listen.CheckedChanged += (_, _) => UpdateListen();

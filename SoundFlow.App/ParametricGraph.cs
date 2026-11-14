@@ -89,6 +89,8 @@ internal sealed class ParametricGraph : Control
             g.DrawString(f >= 1000 ? $"{f / 1000:g}k" : f.ToString(), tiny, text, x - Ui.S(8), p.Bottom + Ui.S(5));
         }
         int stepDb = range switch { 12 => 3, 24 => 6, _ => 12 };
+        // keep dB labels apart on a low graph
+        while (stepDb < range && Math.Abs(Y(0) - Y(stepDb)) < tiny.GetHeight(g) * 1.3f) stepDb *= 2;
         for (int db = -range; db <= range; db += stepDb)
         {
             float y = Y(db);
@@ -161,7 +163,7 @@ internal sealed class ParametricGraph : Control
             float x = X(b.Frequency), y = Y(HandleGain(b));
             string gain = Band.HasGain(b.Type) ? $"   {b.Gain:+0.0;-0.0;0.0} dB" : "";
             string slope = IsCut(b) ? $"   {b.Slope} dB/oct" : $"   Q {b.Q:0.00}";
-            string s = $"{bubbleIndex + 1}  {TypeName(b.Type)}   {FormatHz(b.Frequency)}{gain}{slope}{(bubbleIndex == solo ? "   🎧" : "")}";
+            string s = $"{bubbleIndex + 1}  {TypeName(b.Type)}   {FormatHz(b.Frequency)}{gain}{slope}{(bubbleIndex == solo ? "   " + L("СЛУШАЮ", "LISTENING", "ТЫҢДАУ") : "")}";
             var size = g.MeasureString(s, info);
             float bx = Math.Clamp(x - size.Width / 2 - 8, p.Left, Math.Max(p.Left, p.Right - size.Width - 16));
             float bh = size.Height + Ui.Sf(10), by = y - bh - Ui.Sf(16) < p.Top ? y + Ui.Sf(16) : y - bh - Ui.Sf(16);
