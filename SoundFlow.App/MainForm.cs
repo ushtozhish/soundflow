@@ -119,7 +119,7 @@ internal sealed class MainForm : Form
         BuildUi();
         BuildTray();
         if (Ui.FontBoost != 1) BoostFonts();
-        listen.Width = TextRenderer.MeasureText(listen.Text, listen.Font).Width + Scale(28);
+        FitListen();
 
         graph.BandsProvider = () => s.Parametric;
         graph.SpectrumProvider = demo ? Demo.Spectrum : analyzer.Snapshot;
@@ -484,6 +484,12 @@ internal sealed class MainForm : Form
         if (!demo) Apply();
     }
 
+    void FitListen()
+    {
+        var size = TextRenderer.MeasureText(listen.Text, listen.Font);
+        listen.Size = new(size.Width + Scale(28), Math.Max(size.Height + Scale(12), Scale(30)));
+    }
+
     void PaintListen()
     {
         listen.BackColor = listen.Checked ? Color.FromArgb(255, 205, 60) : Color.FromArgb(22, 24, 30);
@@ -623,7 +629,7 @@ internal sealed class MainForm : Form
         listen.FlatStyle = FlatStyle.Flat;
         listen.Padding = new(6, 2, 6, 2);
         listen.Margin = new(18, 0, 0, 0);
-        listen.Size = new(TextRenderer.MeasureText(listen.Text, listen.Font).Width + Scale(28), rowHeight);
+        FitListen();
         listen.TextAlign = ContentAlignment.MiddleCenter;
         listen.FlatAppearance.BorderColor = Color.FromArgb(150, 130, 60);
         listen.CheckedChanged += (_, _) => UpdateListen();
@@ -635,7 +641,7 @@ internal sealed class MainForm : Form
         var hint = new Label
         {
             Text = L("Тяни точку — частота и усиление  •  стрелки по бокам или колесо — ширина (Q), у High-pass / Low-pass тянуть вверх-вниз или колесо — крутизна  •  Shift — точнее  •  двойной клик — добавить / удалить  •  правый клик — сбросить в 0 dB  •  Shift + правый клик — тип фильтра  •  🎧 — слушать полосу", "Drag a dot — frequency and gain  •  side arrows or wheel — width (Q); High-pass / Low-pass: drag up/down or wheel — slope  •  Shift — finer  •  double-click — add / remove  •  right-click — reset to 0 dB  •  Shift + right-click — filter type  •  🎧 — listen to band", "Нүктені тартыңыз — жиілік пен күшейту  •  бүйірдегі көрсеткілер не дөңгелек — ені (Q), High-pass / Low-pass үшін жоғары-төмен тарту не дөңгелек — еңіс  •  Shift — дәлірек  •  қос шерту — қосу / жою  •  оң жақ шерту — 0 dB-ге қайтару  •  Shift + оң жақ шерту — сүзгі түрі  •  🎧 — жолақты тыңдау"),
-            AutoSize = true, ForeColor = Muted, Padding = new(2, 6, 0, 0),
+            AutoSize = true, ForeColor = Muted, Padding = new(2, 6, 0, 0), Font = new("Segoe UI", 8),
         };
         layout.RowCount = 4;
         layout.RowStyles.Add(new(SizeType.AutoSize));
