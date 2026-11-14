@@ -65,7 +65,7 @@ internal static class Program
             {
                 StartPosition = FormStartPosition.Manual,
                 Location = new Point(0, 0),
-                Size = new Size(1240, 800),
+                Size = new Size(1240, 880),
             };
             form.Show();
             form.CaptureScreens(folder);

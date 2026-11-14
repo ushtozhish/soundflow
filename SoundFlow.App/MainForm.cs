@@ -554,8 +554,9 @@ internal sealed class MainForm : Form
         layout.Controls.Add(channelNote, 0, 0);
         WrapToWidth(channelNote, layout);
 
+        // one scroll area for both: channel strips on the left and the cube matrix on the right stay row-aligned
         var area = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
-        channelTable.Dock = DockStyle.Left;
+        channelTable.Location = new(0, 0);
         channelTable.Width = Scale(430);
         channelTable.ColumnCount = 5;
         channelTable.ColumnStyles.Add(new(SizeType.Absolute, Scale(86)));
@@ -563,17 +564,15 @@ internal sealed class MainForm : Form
         channelTable.ColumnStyles.Add(new(SizeType.Absolute, Scale(70)));
         channelTable.ColumnStyles.Add(new(SizeType.AutoSize));
         channelTable.ColumnStyles.Add(new(SizeType.AutoSize));
-        var matrixScroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
-        matrix.Location = new(0, 0);
+        matrix.Location = new(Scale(440), 0);
         matrix.SourceNames = () => device.ChannelNames;
         matrix.Devices = () => outputsList;
         matrix.IsOn = RouteIsOn;
         matrix.ErrorOf = id => outputErrors.TryGetValue(id, out var e) ? e : null;
         matrix.Toggled += ToggleRoute;
         matrix.ResetRequested += id => { s.Routes.Remove(id); RebuildOutputs(); Changed(); ScheduleSave(); };
-        matrixScroll.Controls.Add(matrix);
-        area.Controls.Add(matrixScroll);
         area.Controls.Add(channelTable);
+        area.Controls.Add(matrix);
         layout.Controls.Add(area, 0, 1);
 
         outputStrip.Dock = DockStyle.Fill;
@@ -644,7 +643,9 @@ internal sealed class MainForm : Form
 
     void LayoutMatrix()
     {
-        matrix.Size = new(matrix.PreferredWidth, matrix.HeaderHeight + device.Channels * matrix.RowHeight + Scale(8));
+        int height = matrix.HeaderHeight + device.Channels * matrix.RowHeight + Scale(8);
+        matrix.Size = new(matrix.PreferredWidth, height);
+        channelTable.Height = height;
         matrix.Invalidate();
     }
 
@@ -661,7 +662,7 @@ internal sealed class MainForm : Form
         foreach (var o in outputsList.Where(o => !o.IsDefault && s.Routes.ContainsKey(o.Id)))
         {
             var route = s.Routes[o.Id];
-            var name = new Label { Text = o.Name, AutoSize = true, ForeColor = Color.Gainsboro, Margin = new(12, 8, 4, 0), MaximumSize = new(Scale(200), 0) };
+            var name = new Label { Text = o.Name, AutoSize = true, AutoEllipsis = true, ForeColor = Color.Gainsboro, Margin = new(12, 8, 4, 0), MaximumSize = new(Scale(170), Scale(20)) };
             var bar = new TrackBar { Minimum = -40, Maximum = 12, TickStyle = TickStyle.None, Width = Scale(140), Value = (int)Math.Clamp(Math.Round(route.Gain), -40, 12) };
             var value = new Label { Text = Db(bar.Value), AutoSize = true, Margin = new(0, 8, 4, 0) };
             var mute = ToggleButton("M", Bad, route.Mute, L("Заглушить этот выход", "Mute this output", "Бұл шығыстың дыбысын өшіру"));
