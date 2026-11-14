@@ -24,7 +24,7 @@ Make films loud and clear at night volume, shape the sound with a parametric EQ,
 ## Why SoundFlow
 
 - **Night mode without crackle.** Raise the preamp up to +12 dB and keep Windows volume low: quiet scenes become clear, nothing distorts. The slider stays exactly where you put it — after restarts too.
-- **A real parametric EQ.** Drag points on the curve, change the width with the wheel, listen to one band alone, cut a frequency down to silence.
+- **A real parametric EQ over a live spectrum.** Watch the peaks of what is playing move while you drag points on the curve, change the width with the wheel, listen to one band alone, cut a frequency down to silence.
 - **Routing like a mixer.** Send any channel of your main card to any channel of another card (USB, HDMI…) by clicking cubes in a matrix. No VB-Cable, no extra drivers.
 - **Nothing nags.** No trial, no pop-ups, no waiting at start. It starts with Windows quietly in the tray.
 
@@ -54,6 +54,8 @@ The line at the bottom shows how far the result is above or below 0 dB.
 | Ctrl+Z / Ctrl+Y | undo / redo |
 | `±12` button (bottom left) | graph scale ±12 / ±24 / ±48 dB |
 
+Behind the curve runs a **live spectrum** of what the computer is playing: the blue area is the current level, the light line holds the peaks for a second and then lets them fall — so you see exactly which frequencies stick out and how your changes affect them.
+
 Filter types: bell, low/high shelf, high-pass and low-pass with 12–48 dB/oct slopes, notch, band-pass. A band can go down to −60 dB; **notch** silences a single frequency completely (hum, whine). Every band can be limited to one channel (e.g. only the subwoofer). The table under the graph gives exact numbers.
 
 ### 3. Graphic EQ
@@ -77,6 +79,7 @@ To spread more than two channels, set the main card to 5.1 or 7.1 in Windows (So
 ### 5. Profiles, tray, language
 
 - **Profiles**: built-in presets and your own (**Save as…**). Profiles never change the preamp.
+- ❤ next to the language buttons (and in the tray menu) opens the [support page](https://ushtozhish.github.io/support/).
 - Closing the window keeps SoundFlow running in the tray. Tray menu: on/off, start with Windows, settings and log folder, exit.
 - Language: EN | RU | KZ buttons (top right). On first start it follows the Windows language.
 

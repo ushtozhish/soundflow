@@ -52,6 +52,7 @@ internal sealed class ParametricGraph : Control
     public ParametricGraph()
     {
         DoubleBuffered = true;
+        Array.Fill(peakHold, -200);
         SetStyle(ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
         BackColor = Color.FromArgb(14, 15, 20);
         Cursor = Cursors.Cross;
@@ -165,29 +166,63 @@ internal sealed class ParametricGraph : Control
         "HP" => L("Срез низов", "High-pass", "Төменгіні кесу"), "NO" => L("Режекция (вырез)", "Notch", "Режекция (ойық)"), "BP" => L("Полосовой", "Band-pass", "Жолақтық"), _ => L("Колокол", "Bell", "Қоңырау"),
     };
 
+    const int SpectrumPoints = 240;
+    readonly double[] peakHold = new double[SpectrumPoints];
+    readonly long[] peakTime = new long[SpectrumPoints];
+    SpectrumFrame? lastFrame;
+
+    /// <summary>
+    /// Live spectrum of what the computer is playing: filled area = current level, bright line = peaks
+    /// (held for a second, then falling slowly), so you can watch peaks move while you shape the EQ.
+    /// </summary>
     void DrawSpectrum(Graphics g, RectangleF p)
     {
         var frame = SpectrumProvider?.Invoke();
-        if (frame is null || frame.Values.Length < 2) return;
-        var pts = new PointF[200];
-        for (int i = 0; i < pts.Length; i++)
+        if (frame is null || frame.Values.Length < 2) { Array.Fill(peakHold, -200); return; }
+        bool fresh = !ReferenceEquals(frame, lastFrame);
+        lastFrame = frame;
+        long now = Environment.TickCount64;
+        var pts = new PointF[SpectrumPoints];
+        var peaks = new PointF[SpectrumPoints];
+        float Yspec(double db) => p.Bottom - (float)((Math.Clamp(db, -84, 0) + 84) / 84) * p.Height;
+        for (int i = 0; i < SpectrumPoints; i++)
         {
-            double f = 20 * Math.Pow(1000, i / (pts.Length - 1d));
-            double binF = f * frame.FftSize / frame.SampleRate;
-            int b0 = Math.Clamp((int)binF, 0, frame.Values.Length - 1), b1 = Math.Min(b0 + 1, frame.Values.Length - 1);
-            double db = frame.Values[b0] + (frame.Values[b1] - frame.Values[b0]) * (binF - b0);
-            db += 3 * Math.Log2(f / 1000); // tilt so music looks flat-ish
-            db = Math.Clamp(db, -90, 0);
-            pts[i] = new(X(f), p.Bottom - (float)((db + 90) / 90) * p.Height * .85f);
+            double f0 = 20 * Math.Pow(1000, i / (double)SpectrumPoints), f1 = 20 * Math.Pow(1000, (i + 1) / (double)SpectrumPoints);
+            double bin0 = f0 * frame.FftSize / frame.SampleRate, bin1 = f1 * frame.FftSize / frame.SampleRate;
+            double db;
+            if (bin1 - bin0 < 1)
+            {
+                // low frequencies: fewer bins than pixels — interpolate
+                int b0 = Math.Clamp((int)bin0, 0, frame.Values.Length - 2);
+                db = frame.Values[b0] + (frame.Values[b0 + 1] - frame.Values[b0]) * (bin0 - b0);
+            }
+            else
+            {
+                // high frequencies: many bins per pixel — take the loudest so peaks are not averaged away
+                db = -200;
+                for (int b = (int)bin0; b <= Math.Min((int)bin1, frame.Values.Length - 1); b++) db = Math.Max(db, frame.Values[b]);
+            }
+            db += 4.5 * Math.Log2(Math.Max(f0, 20) / 1000); // pink-noise tilt: music looks level instead of falling off
+            if (fresh)
+            {
+                if (db >= peakHold[i]) { peakHold[i] = db; peakTime[i] = now; }
+                else if (now - peakTime[i] > 1000) peakHold[i] -= 0.6;
+            }
+            double x = X(Math.Sqrt(f0 * f1));
+            pts[i] = new((float)x, Yspec(db));
+            peaks[i] = new((float)x, Yspec(peakHold[i]));
         }
         using var path = new GraphicsPath();
         path.AddLines(pts);
         path.AddLine(pts[^1].X, p.Bottom, pts[0].X, p.Bottom);
         path.CloseFigure();
-        using var fill = new SolidBrush(Color.FromArgb(42, 205, 215, 205));
+        using var fill = new LinearGradientBrush(new RectangleF(p.Left, p.Top, p.Width, p.Height + 1),
+            Color.FromArgb(120, 120, 200, 255), Color.FromArgb(25, 60, 110, 180), LinearGradientMode.Vertical);
         g.FillPath(fill, path);
-        using var edge = new Pen(Color.FromArgb(75, 215, 225, 215), 1);
+        using var edge = new Pen(Color.FromArgb(150, 150, 215, 255), 1);
         g.DrawLines(edge, pts);
+        using var peakPen = new Pen(Color.FromArgb(210, 255, 235, 150), 1.4f);
+        g.DrawLines(peakPen, peaks);
     }
 
     void DrawQHandles(Graphics g, float x, float y, double q, Color color)

@@ -176,7 +176,7 @@ internal sealed class SpectrumAnalyzer : IDisposable
                 for (int ch = 0; ch < f.Channels; ch++) sum += Sample(e.Buffer, offset + ch * bytes, f);
                 ring[position] = (float)(sum / f.Channels);
                 position = (position + 1) % N;
-                if (++sinceAnalysis >= N / 2) { sinceAnalysis = 0; Analyze(f.SampleRate); }
+                if (++sinceAnalysis >= N / 4) { sinceAnalysis = 0; Analyze(f.SampleRate); }
             }
         }
         catch (Exception ex) { Log.Error("Анализатор спектра", ex); }
@@ -206,7 +206,7 @@ internal sealed class SpectrumAnalyzer : IDisposable
         {
             float db = (float)(20 * Math.Log10(Math.Max(1e-7, work[i].Magnitude / (N * .25))));
             values[i] = previous is not null && previous.Length == values.Length
-                ? (db > previous[i] ? previous[i] * .45f + db * .55f : previous[i] * .82f + db * .18f)
+                ? (db > previous[i] ? previous[i] * .3f + db * .7f : previous[i] * .85f + db * .15f)
                 : db;
         }
         latest = new(values, sampleRate, N);

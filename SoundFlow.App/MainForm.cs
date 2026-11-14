@@ -171,6 +171,7 @@ internal sealed class MainForm : Form
         trayAutostart.Click += (_, _) => { s.StartWithWindows = trayAutostart.Checked; ApplyAutostart(); ScheduleSave(); };
         menu.Items.Add(trayAutostart);
         menu.Items.Add(L("Папка с настройками и журналом", "Settings and log folder", "Баптаулар мен журнал қалтасы"), null, (_, _) => OpenFolder(Store.Folder));
+        menu.Items.Add("❤ " + SupportText, null, (_, _) => OpenSupport());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(L("Выход", "Exit", "Шығу"), null, (_, _) => { Store.Save(s); tray.Visible = false; Application.Exit(); });
         menu.Opening += (_, _) => { trayEnabled.Checked = s.Enabled; trayAutostart.Checked = s.StartWithWindows; };
@@ -262,6 +263,15 @@ internal sealed class MainForm : Form
             b.Click += (_, _) => SwitchLanguage(code);
             language.Controls.Add(b);
         }
+        var support = new Button
+        {
+            Text = "❤", AutoSize = true, MinimumSize = new(Scale(38), Scale(26)), FlatStyle = FlatStyle.Flat, Margin = new(8, 0, 0, 0),
+            Font = new("Segoe UI Symbol", 9.5f, FontStyle.Bold), BackColor = Color.FromArgb(30, 33, 40), ForeColor = Color.FromArgb(255, 105, 120),
+        };
+        support.FlatAppearance.BorderColor = Color.FromArgb(60, 64, 74);
+        tips.SetToolTip(support, SupportText);
+        support.Click += (_, _) => OpenSupport();
+        language.Controls.Add(support);
         right.Controls.Add(language);
         header.Controls.Add(right, 2, 0);
         root.Controls.Add(header, 0, 0);
@@ -1161,6 +1171,16 @@ internal sealed class MainForm : Form
         if (Apo.ReadCurrent() != expected) { Log.Info("Конфиг APO отличается от ожидаемого — восстанавливаю"); Apply(force: true); }
         var attached = Apo.IsAttached(device.Id);
         if (attached != apoAttached) { apoAttached = attached; UpdateStatus(); }
+    }
+
+    const string SupportUrl = "https://ushtozhish.github.io/support/";
+    static string SupportText => L("Поддержи по-братски", "Support the dev", "Бауырша қолда");
+
+    /// <summary>Opens the support page (voluntary gift; every feature stays free).</summary>
+    static void OpenSupport()
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(SupportUrl) { UseShellExecute = true }); }
+        catch (Exception ex) { Log.Error("Открытие страницы поддержки", ex); }
     }
 
     void SwitchLanguage(string code)
