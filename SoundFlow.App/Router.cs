@@ -366,7 +366,7 @@ internal sealed class RouteMatrix : Control
                     if (hover is { } h && h.id == dev.Id && h.src == r + 1 && h.dst == c + 1) g.DrawRectangle(hot, rect);
                 }
         }
-        if (rows == 0) g.DrawString(Lang.L("Нет устройства воспроизведения", "No playback device"), bold, text, 10, HeaderHeight);
+        if (rows == 0) g.DrawString(Lang.L("Нет устройства воспроизведения", "No playback device", "Ойнату құрылғысы жоқ"), bold, text, 10, HeaderHeight);
     }
 
     (string id, int src, int dst)? HitCell(Point p)
@@ -399,7 +399,7 @@ internal sealed class RouteMatrix : Control
         Cursor = h is not null || HitHeader(e.Location) is not null ? Cursors.Hand : Cursors.Default;
         string? id = h?.id ?? HitHeader(e.Location);
         var err = id is null ? null : ErrorOf?.Invoke(id);
-        tip.SetToolTip(this, err ?? (h is null ? Lang.L("Правый клик по названию устройства — сбросить его маршруты", "Right-click a device name — reset its routes") : ""));
+        tip.SetToolTip(this, err ?? (h is null ? Lang.L("Правый клик по названию устройства — сбросить его маршруты", "Right-click a device name — reset its routes", "Құрылғы атауын оң жақ шерту — оның бағыттарын тазарту") : ""));
     }
 
     protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); hover = null; Invalidate(); }

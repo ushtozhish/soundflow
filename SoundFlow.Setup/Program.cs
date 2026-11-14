@@ -7,10 +7,15 @@ namespace SoundFlowSetup;
 
 internal static class Program
 {
-    static readonly bool En = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName is not ("ru" or "kk" or "be" or "uk" or "ky" or "uz");
-    internal static string L(string ru, string en) => En ? en : ru;
+    static readonly string Ui = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName switch
+    {
+        "kk" => "kk",
+        "ru" or "be" or "uk" or "ky" or "uz" => "ru",
+        _ => "en",
+    };
+    internal static string L(string ru, string en, string? kk = null) => Ui switch { "en" => en, "kk" => kk ?? ru, _ => ru };
 
-    internal const string Version = "1.3.0";
+    internal const string Version = "1.4.0";
     internal static readonly string InstallDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "SoundFlow");
     internal static readonly string AppPath = Path.Combine(InstallDir, "SoundFlow.exe");
     internal static readonly string ApoDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "EqualizerAPO");
@@ -33,20 +38,20 @@ internal static class Program
 
     internal static Image Logo()
     {
-        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("SoundFlow.logo.png") ?? throw new InvalidOperationException(L("Не найдена иконка", "Icon not found"));
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("SoundFlow.logo.png") ?? throw new InvalidOperationException(L("Не найдена иконка", "Icon not found", "Белгіше табылмады"));
         return new Bitmap(stream);
     }
 
     internal static void Extract(string resource, string destination)
     {
-        using var input = Assembly.GetExecutingAssembly().GetManifestResourceStream(resource) ?? throw new InvalidOperationException(L("Не найден встроенный файл: ", "Embedded file not found: ") + resource);
+        using var input = Assembly.GetExecutingAssembly().GetManifestResourceStream(resource) ?? throw new InvalidOperationException(L("Не найден встроенный файл: ", "Embedded file not found: ", "Кірістірілген файл табылмады: ") + resource);
         using var output = File.Create(destination);
         input.CopyTo(output);
     }
 
     internal static void Shortcut(string path, string target, string description)
     {
-        var type = Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException(L("Не удалось создать ярлык", "Could not create a shortcut"));
+        var type = Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException(L("Не удалось создать ярлык", "Could not create a shortcut", "Белгі жасау мүмкін болмады"));
         dynamic shell = Activator.CreateInstance(type)!;
         dynamic link = shell.CreateShortcut(path);
         link.TargetPath = target;
@@ -75,16 +80,16 @@ internal static class Program
 
 internal sealed class InstallForm : Form
 {
-    static string L(string ru, string en) => Program.L(ru, en);
+    static string L(string ru, string en, string? kk = null) => Program.L(ru, en, kk);
     bool finished;
-    readonly Button install = new() { Text = L("Установить", "Install"), Height = 48, Dock = DockStyle.Bottom };
+    readonly Button install = new() { Text = L("Установить", "Install", "Орнату"), Height = 48, Dock = DockStyle.Bottom };
     readonly ProgressBar progress = new() { Dock = DockStyle.Bottom, Height = 7, Style = ProgressBarStyle.Marquee, Visible = false };
-    readonly CheckBox desktop = new() { Text = L("Создать ярлык на рабочем столе", "Create a desktop shortcut"), Checked = true, AutoSize = true };
+    readonly CheckBox desktop = new() { Text = L("Создать ярлык на рабочем столе", "Create a desktop shortcut", "Жұмыс үстелінде белгі жасау"), Checked = true, AutoSize = true };
     readonly Label state = new() { AutoSize = false, Height = 46, Dock = DockStyle.Bottom, TextAlign = ContentAlignment.MiddleLeft };
 
     public InstallForm()
     {
-        Text = L("Установка SoundFlow ", "SoundFlow setup ") + Program.Version;
+        Text = L("Установка SoundFlow ", "SoundFlow setup ", "SoundFlow орнату ") + Program.Version;
         Icon = Program.AppIcon();
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -99,14 +104,15 @@ internal sealed class InstallForm : Form
 
         var logo = new PictureBox { Image = Program.Logo(), SizeMode = PictureBoxSizeMode.Zoom, Size = new(88, 88), Location = new(34, 32) };
         var title = new Label { Text = "SOUNDFLOW", Font = new("Segoe UI", 28, FontStyle.Bold), ForeColor = Color.FromArgb(200, 255, 56), AutoSize = true, Location = new(140, 42) };
-        var sub = new Label { Text = L("Системный эквалайзер Windows · версия ", "System equalizer for Windows · version ") + Program.Version, ForeColor = Color.FromArgb(160, 165, 175), AutoSize = true, Location = new(144, 92) };
+        var sub = new Label { Text = L("Системный эквалайзер Windows · версия ", "System equalizer for Windows · version ", "Windows жүйелік эквалайзері · нұсқа ") + Program.Version, ForeColor = Color.FromArgb(160, 165, 175), AutoSize = true, Location = new(144, 92) };
         string apoText = Program.ApoInstalled
-            ? L("Equalizer APO уже установлен — он не будет переустановлен, ваши устройства останутся как есть.", "Equalizer APO is already installed — it will not be reinstalled, your devices stay as they are.")
-            : L("Также будет установлен Equalizer APO 1.4.2 (бесплатный, GPL). В его окне отметьте устройство воспроизведения, на котором нужен эквалайзер. Для завершения потребуется перезагрузка.", "Equalizer APO 1.4.2 (free, GPL) will also be installed. In its window tick the playback device that needs the equalizer. A restart is required to finish.");
+            ? L("Equalizer APO уже установлен — он не будет переустановлен, ваши устройства останутся как есть.", "Equalizer APO is already installed — it will not be reinstalled, your devices stay as they are.", "Equalizer APO бұрыннан орнатылған — ол қайта орнатылмайды, құрылғыларыңыз сол күйінде қалады.")
+            : L("Также будет установлен Equalizer APO 1.4.2 (бесплатный, GPL). В его окне отметьте устройство воспроизведения, на котором нужен эквалайзер. Для завершения потребуется перезагрузка.", "Equalizer APO 1.4.2 (free, GPL) will also be installed. In its window tick the playback device that needs the equalizer. A restart is required to finish.", "Сондай-ақ Equalizer APO 1.4.2 (тегін, GPL) орнатылады. Оның терезесінде эквалайзер керек ойнату құрылғысын белгілеңіз. Аяқтау үшін компьютерді қайта іске қосу қажет.");
         var text = new Label
         {
             Text = L("Установщик добавит SoundFlow в Program Files и в автозапуск (тихо, в область уведомлений). Если SoundFlow уже установлен, он будет обновлён, настройки сохранятся.\n\n",
-                     "Setup puts SoundFlow into Program Files and into startup (quietly, in the notification area). If SoundFlow is already installed it is updated and your settings are kept.\n\n") + apoText,
+                     "Setup puts SoundFlow into Program Files and into startup (quietly, in the notification area). If SoundFlow is already installed it is updated and your settings are kept.\n\n",
+                     "Орнатушы SoundFlow-ды Program Files-қа және автоіске қосуға (тыныш, хабарландыру аймағына) қосады. SoundFlow бұрыннан орнатылса, ол жаңартылады, баптаулар сақталады.\n\n") + apoText,
             Location = new(36, 150), Size = new(530, 140), ForeColor = Color.FromArgb(210, 212, 218),
         };
         desktop.Location = new(36, 300);
@@ -137,7 +143,7 @@ internal sealed class InstallForm : Form
         bool needReboot = false;
         try
         {
-            state.Text = L("Копирование SoundFlow…", "Copying SoundFlow…");
+            state.Text = L("Копирование SoundFlow…", "Copying SoundFlow…", "SoundFlow көшірілуде…");
             bool createDesktop = desktop.Checked;
             await Task.Run(() =>
             {
@@ -149,9 +155,9 @@ internal sealed class InstallForm : Form
                     try { File.Delete(Path.Combine(Program.InstallDir, old)); } catch { }
 
                 string start = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu), "Programs", "SoundFlow.lnk");
-                Program.Shortcut(start, Program.AppPath, L("Системный эквалайзер SoundFlow", "SoundFlow system equalizer"));
+                Program.Shortcut(start, Program.AppPath, L("Системный эквалайзер SoundFlow", "SoundFlow system equalizer", "SoundFlow жүйелік эквалайзері"));
                 if (createDesktop)
-                    Program.Shortcut(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory), "SoundFlow.lnk"), Program.AppPath, L("Системный эквалайзер SoundFlow", "SoundFlow system equalizer"));
+                    Program.Shortcut(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory), "SoundFlow.lnk"), Program.AppPath, L("Системный эквалайзер SoundFlow", "SoundFlow system equalizer", "SoundFlow жүйелік эквалайзері"));
 
                 using var key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\SoundFlow");
                 key.SetValue("DisplayName", "SoundFlow");
@@ -168,31 +174,31 @@ internal sealed class InstallForm : Form
 
             if (!Program.ApoInstalled)
             {
-                state.Text = L("Установка Equalizer APO… Отметьте в его окне своё устройство воспроизведения.", "Installing Equalizer APO… Tick your playback device in its window.");
+                state.Text = L("Установка Equalizer APO… Отметьте в его окне своё устройство воспроизведения.", "Installing Equalizer APO… Tick your playback device in its window.", "Equalizer APO орнатылуда… Оның терезесінде ойнату құрылғыңызды белгілеңіз.");
                 string apo = Path.Combine(Path.GetTempPath(), "EqualizerAPO-x64-1.4.2.exe");
                 await Task.Run(() => Program.Extract("EqualizerAPO.exe", apo));
                 await Task.Run(() => Program.RunAndWait(apo, "", shell: true));
                 try { File.Delete(apo); } catch { }
                 needReboot = true;
-                if (!Program.ApoInstalled) throw new InvalidOperationException(L("Equalizer APO не установлен — без него SoundFlow не сможет менять звук. Запустите установку ещё раз.", "Equalizer APO is not installed — SoundFlow cannot change the sound without it. Run the setup again."));
+                if (!Program.ApoInstalled) throw new InvalidOperationException(L("Equalizer APO не установлен — без него SoundFlow не сможет менять звук. Запустите установку ещё раз.", "Equalizer APO is not installed — SoundFlow cannot change the sound without it. Run the setup again.", "Equalizer APO орнатылмады — онсыз SoundFlow дыбысты өзгерте алмайды. Орнатуды қайта іске қосыңыз."));
             }
 
-            state.Text = L("Подключение SoundFlow к Equalizer APO…", "Connecting SoundFlow to Equalizer APO…");
+            state.Text = L("Подключение SoundFlow к Equalizer APO…", "Connecting SoundFlow to Equalizer APO…", "SoundFlow Equalizer APO-ға қосылуда…");
             int code = await Task.Run(() => Program.RunAndWait(Program.AppPath, "--prepare-apo", shell: false));
-            if (code != 0) throw new InvalidOperationException(L("Не удалось настроить конфигурацию Equalizer APO (подробности в журнале SoundFlow).", "Could not configure Equalizer APO (see the SoundFlow log)."));
+            if (code != 0) throw new InvalidOperationException(L("Не удалось настроить конфигурацию Equalizer APO (подробности в журнале SoundFlow).", "Could not configure Equalizer APO (see the SoundFlow log).", "Equalizer APO конфигурациясын баптау мүмкін болмады (толығы SoundFlow журналында)."));
 
             state.Text = needReboot
-                ? L("Готово. Перезагрузите Windows, чтобы Equalizer APO начал работать.", "Done. Restart Windows so Equalizer APO starts working.")
-                : L("Готово. Настройки сохранены, эквалайзер работает.", "Done. Settings kept, the equalizer is working.");
+                ? L("Готово. Перезагрузите Windows, чтобы Equalizer APO начал работать.", "Done. Restart Windows so Equalizer APO starts working.", "Дайын. Equalizer APO жұмыс істей бастауы үшін Windows-ты қайта іске қосыңыз.")
+                : L("Готово. Настройки сохранены, эквалайзер работает.", "Done. Settings kept, the equalizer is working.", "Дайын. Баптаулар сақталды, эквалайзер жұмыс істеп тұр.");
             progress.Visible = false;
-            install.Text = L("Запустить SoundFlow", "Launch SoundFlow");
+            install.Text = L("Запустить SoundFlow", "Launch SoundFlow", "SoundFlow іске қосу");
             finished = true;
             install.Enabled = true;
         }
         catch (Exception ex)
         {
             progress.Visible = false;
-            state.Text = L("Ошибка: ", "Error: ") + ex.Message;
+            state.Text = L("Ошибка: ", "Error: ", "Қате: ") + ex.Message;
             state.ForeColor = Color.FromArgb(255, 98, 90);
             install.Enabled = true;
             desktop.Enabled = true;

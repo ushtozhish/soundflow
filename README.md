@@ -1,83 +1,119 @@
-# SoundFlow
+<p align="right"><b>English</b> · <a href="README.ru.md">Русский</a> · <a href="README.kk.md">Қазақша</a></p>
 
-**[Русский](#русский) · [English](#english)**
+<p align="center"><img src="docs/img/icon.png" width="80" alt=""></p>
 
----
+<h1 align="center">SoundFlow</h1>
 
-## Русский
+<p align="center"><b>A free system-wide equalizer and audio router for Windows.</b><br>
+Make films loud and clear at night volume, shape the sound with a parametric EQ, and send any channel to any sound card — without virtual cables.</p>
 
-Бесплатный системный эквалайзер для Windows. Работает поверх [Equalizer APO](https://sourceforge.net/projects/equalizerapo/): обрабатывает весь звук компьютера, без задержки и без окон «купите полную версию».
+<p align="center">Windows 10/11 · free · open source (MIT) · English / Русский / Қазақша<br>
+<a href="https://github.com/ushtozhish/soundflow/actions/workflows/build.yml"><img src="https://github.com/ushtozhish/soundflow/actions/workflows/build.yml/badge.svg" alt="Build"></a><br>
+<a href="https://github.com/ushtozhish/soundflow/releases/latest"><b>⬇ Download the installer</b></a></p>
 
-### Возможности
+![SoundFlow parametric equalizer: frequency response with draggable bands over a live spectrum](docs/img/parametric-en.png)
 
-- **Предусиление** до +12 dB: громкий и плотный звук на малой громкости, удобно смотреть фильмы ночью. Ползунок двигаете только вы, программа его никогда не сбрасывает.
-- **Графический 10-полосный эквалайзер** и **параметрический эквалайзер**:
-  - тяните точку — меняются частота и усиление; стрелки по бокам или колесо — ширина полосы (Q); Shift — точная подстройка;
-  - Ctrl + перетаскивание — послушать одну полосу отдельно;
-  - двойной клик — добавить или удалить полосу; правый клик — сбросить в 0 dB; Shift + правый клик — тип фильтра;
-  - типы: колокол, полки, срезы 12–48 dB/окт, режекция, полосовой; вырез до −60 dB;
-  - живой спектроанализатор, отмена и повтор (Ctrl+Z / Ctrl+Y).
-- **Каналы**: громкость, M (mute) и S (solo) для каждого канала устройства; любую полосу EQ можно назначить на отдельный канал.
-- **Профили**: встроенные и свои.
-- Запуск вместе с Windows (тихо, в трей), восстановление после сна и смены устройства.
-- Интерфейс на русском и английском.
+> Screenshots are taken automatically from the real interface on every change (GitHub Actions, demo data: the device names and settings are examples).
 
-### Установка
+## Contents
 
-Скачайте `SoundFlow-Setup.exe` в разделе [Releases](../../releases) и запустите. Установщик сам поставит Equalizer APO, если его ещё нет. В окне APO отметьте своё устройство воспроизведения и перезагрузите компьютер.
+- [Why SoundFlow](#why-soundflow)
+- [Tour of the app](#tour-of-the-app): [Preamp](#1-preamp) · [Parametric EQ](#2-parametric-eq) · [Graphic EQ](#3-graphic-eq) · [Routing](#4-routing) · [Profiles, tray, language](#5-profiles-tray-language)
+- [Installation](#installation) · [How it works](#how-it-works) · [Limitations](#limitations) · [Building from source](#building-from-source) · [License](#license)
 
-Удаление — через «Установку и удаление программ». Настройки SoundFlow убираются из Equalizer APO, сам APO остаётся.
+## Why SoundFlow
 
-### Сборка из исходников
+- **Night mode without crackle.** Raise the preamp up to +12 dB and keep Windows volume low: quiet scenes become clear, nothing distorts. The slider stays exactly where you put it — after restarts too.
+- **A real parametric EQ.** Drag points on the curve, change the width with the wheel, listen to one band alone, cut a frequency down to silence.
+- **Routing like a mixer.** Send any channel of your main card to any channel of another card (USB, HDMI…) by clicking cubes in a matrix. No VB-Cable, no extra drivers.
+- **Nothing nags.** No trial, no pop-ups, no waiting at start. It starts with Windows quietly in the tray.
 
-Нужен [.NET 10 SDK](https://dotnet.microsoft.com/download) x64. Запустите `build-installer.cmd`, результат — `SoundFlow-Setup.exe`. Каждый коммит в `main` автоматически собирается в GitHub Actions; тег `vX.Y.Z` публикует релиз.
+## Tour of the app
 
-### Как это устроено
+### 1. Preamp
 
-SoundFlow пишет настройки в `C:\Program Files\EqualizerAPO\config\soundflow.txt`, а `config.txt` подключает его строкой `Include: soundflow.txt`. Установщик даёт обычному пользователю право записи только в этот файл, поэтому программа работает без прав администратора. Настройки и журнал хранятся в `%AppData%\SoundFlow`.
+The slider at the top raises or lowers the whole sound (−12…+12 dB). Right-click it to return to 0 dB.
+**Compensate EQ boost** — when on, SoundFlow lowers the output by as much as the EQ raises it (e.g. +6 dB of bass → −6 dB at the output), so the loudest parts don't get louder. The slider itself never moves. Off by default.
+The line at the bottom shows how far the result is above or below 0 dB.
 
-| Файл | Что делает |
+### 2. Parametric EQ
+
+**Equalizer** tab → **Parametric**.
+
+| Action | What happens |
 |---|---|
-| `SoundFlow.App/MainForm.cs` | окно, профили, отмена, трей |
-| `SoundFlow.App/ParametricGraph.cs` | интерактивный график EQ |
-| `SoundFlow.App/Apo.cs` | конфиг Equalizer APO, расчёт фильтров |
-| `SoundFlow.App/Audio.cs` | устройство по умолчанию, спектроанализатор |
-| `SoundFlow.App/Settings.cs` | настройки, журнал, языки |
-| `SoundFlow.Setup/Program.cs` | установщик |
+| Drag a dot | frequency and gain |
+| Side arrows / mouse wheel | band width (Q) |
+| Shift + drag / wheel | fine adjustment |
+| Ctrl + drag | listen to this band alone (solo) |
+| Double-click the graph | add a band |
+| Double-click a dot / Delete | remove the band |
+| Right-click a dot | gain back to 0 dB |
+| Shift + right-click | filter type |
+| ← → ↑ ↓ | nudge frequency / gain |
+| Ctrl+Z / Ctrl+Y | undo / redo |
+| `±12` button (bottom left) | graph scale ±12 / ±24 / ±48 dB |
 
----
+Filter types: bell, low/high shelf, high-pass and low-pass with 12–48 dB/oct slopes, notch, band-pass. A band can go down to −60 dB; **notch** silences a single frequency completely (hum, whine). Every band can be limited to one channel (e.g. only the subwoofer). The table under the graph gives exact numbers.
 
-## English
+### 3. Graphic EQ
 
-A free system-wide equalizer for Windows. It runs on top of [Equalizer APO](https://sourceforge.net/projects/equalizerapo/): it processes all of the computer's sound, with no latency and no "buy the full version" pop-ups.
+![Graphic 10-band equalizer](docs/img/graphic-en.png)
 
-### Features
+Ten classic bands from 31 Hz to 16 kHz, ±12 dB. Right-click a slider to reset it.
 
-- **Preamp** up to +12 dB: loud, dense sound at low volume, handy for watching films at night. Only you move the slider; the app never resets it.
-- **Graphic 10-band EQ** and **parametric EQ**:
-  - drag a dot to change frequency and gain; side arrows or the wheel change the width (Q); Shift gives fine control;
-  - Ctrl + drag lets you listen to a band alone;
-  - double-click adds or removes a band; right-click resets to 0 dB; Shift + right-click picks the filter type;
-  - types: bell, shelves, cuts 12–48 dB/oct, notch, band-pass; cuts down to −60 dB;
-  - live spectrum analyzer, undo and redo (Ctrl+Z / Ctrl+Y).
-- **Channels**: level, M (mute) and S (solo) for each device channel; any EQ band can target a single channel.
-- **Profiles**: built-in and your own.
-- Starts with Windows (quietly, in the tray) and recovers after sleep and device changes.
-- Russian and English UI.
+### 4. Routing
 
-### Install
+![Routing matrix: channels of the Windows device on the left, cubes for every output device on the right](docs/img/routing-en.png)
 
-Download `SoundFlow-Setup.exe` from [Releases](../../releases) and run it. The installer adds Equalizer APO if it is missing. In the APO window tick your playback device, then restart the computer.
+- **Left** — the channels of the device selected in Windows: level, **M** (mute) and **S** (solo) for each.
+- **Right** — every output device of the computer, each with its own channels. **Click a cube** to send the channel on the left to that output.
+- **◆ The Windows device itself** shows its normal playback as a diagonal. Change it to swap channels (e.g. center into the left speaker) — done inside Equalizer APO, zero latency.
+- **Other cards** get a copy made by SoundFlow. The copy follows each card's own clock, so it doesn't drift or click over time. Right-click a device name to clear its routes.
+- At the bottom: level and **M** for each output, and **Windows device delay** — copies arrive 30–60 ms later, delay the main card by the same to line everything up.
 
-To uninstall, use "Apps & features". SoundFlow's settings are removed from Equalizer APO; APO itself stays.
+To spread more than two channels, set the main card to 5.1 or 7.1 in Windows (Sound settings → device → Configure speakers) — even if only two speakers are connected. Surround films then arrive with all channels and you can distribute them.
 
-### Build from source
+### 5. Profiles, tray, language
 
-You need the [.NET 10 SDK](https://dotnet.microsoft.com/download) x64. Run `build-installer.cmd`; the result is `SoundFlow-Setup.exe`. Every commit to `main` is built by GitHub Actions; a `vX.Y.Z` tag publishes a release.
+- **Profiles**: built-in presets and your own (**Save as…**). Profiles never change the preamp.
+- Closing the window keeps SoundFlow running in the tray. Tray menu: on/off, start with Windows, settings and log folder, exit.
+- Language: Русский / English / Қазақша (top right). On first start it follows the Windows language.
 
-### How it works
+## Installation
 
-SoundFlow writes its settings to `C:\Program Files\EqualizerAPO\config\soundflow.txt`, which `config.txt` pulls in with `Include: soundflow.txt`. The installer lets normal users write that one file only, so the app runs without admin rights. Settings and the log live in `%AppData%\SoundFlow`.
+1. Download `SoundFlow-Setup.exe` from [Releases](https://github.com/ushtozhish/soundflow/releases/latest) and run it.
+2. If Equalizer APO isn't installed yet, the setup installs it: tick your playback device in its window and restart the computer.
+3. Updating: run the new installer over the old one, your settings are kept.
+
+Uninstall via Windows "Apps & features": SoundFlow's settings are removed from Equalizer APO; APO itself stays (remove it separately if you want).
+
+## How it works
+
+- Sound processing is done by [Equalizer APO](https://sourceforge.net/projects/equalizerapo/), a system audio effect. SoundFlow writes `C:\Program Files\EqualizerAPO\config\soundflow.txt` and APO applies it instantly. The installer lets normal users write only that file, so SoundFlow runs without admin rights.
+- Routing to other cards: WASAPI loopback capture of the Windows device → channel matrix → adaptive resampler that follows each output card's clock → WASAPI output.
+- Settings: `%AppData%\SoundFlow\settings.json` (saved immediately, with a backup copy). Log: `%AppData%\SoundFlow\soundflow.log`.
+
+| File | Purpose |
+|---|---|
+| `SoundFlow.App/MainForm.cs` | window, profiles, undo, tray |
+| `SoundFlow.App/ParametricGraph.cs` | interactive EQ graph |
+| `SoundFlow.App/Router.cs` | routing engine and cube matrix |
+| `SoundFlow.App/Apo.cs` | Equalizer APO config, filter math |
+| `SoundFlow.App/Audio.cs` | default device, spectrum analyzer |
+| `SoundFlow.App/Settings.cs` | settings, log, languages |
+| `SoundFlow.Setup/Program.cs` | installer |
+
+## Limitations
+
+- Windows 10/11 x64 only; needs Equalizer APO (installed automatically).
+- Copies on other cards play only while SoundFlow is running (it starts with Windows).
+- Whether a copy includes the EQ of the main card depends on the sound driver.
+- Physical multichannel output needs a card that supports it; Windows downmixes to stereo if the device is set to stereo.
+
+## Building from source
+
+Install the [.NET 10 SDK](https://dotnet.microsoft.com/download) (x64) and run `build-installer.cmd`; the result is `SoundFlow-Setup.exe`. Every commit to `main` is built by GitHub Actions; a `vX.Y.Z` tag publishes a release.
 
 ## License
 

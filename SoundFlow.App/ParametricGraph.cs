@@ -143,8 +143,8 @@ internal sealed class ParametricGraph : Control
             var b = bands[bubbleIndex];
             float x = X(b.Frequency), y = Y(HandleGain(b));
             string gain = Band.HasGain(b.Type) ? $"   {b.Gain:+0.0;-0.0;0.0} dB" : "";
-            string slope = b.Type is "LP" or "HP" ? $"   {b.Slope} " + L("dB/окт", "dB/oct") : "";
-            string s = $"{bubbleIndex + 1}  {TypeName(b.Type)}   {FormatHz(b.Frequency)}{gain}   Q {b.Q:0.00}{slope}{(bubbleIndex == solo ? L("   СОЛО", "   SOLO") : "")}";
+            string slope = b.Type is "LP" or "HP" ? $"   {b.Slope} " + L("dB/окт", "dB/oct", "dB/окт") : "";
+            string s = $"{bubbleIndex + 1}  {TypeName(b.Type)}   {FormatHz(b.Frequency)}{gain}   Q {b.Q:0.00}{slope}{(bubbleIndex == solo ? L("   СОЛО", "   SOLO", "   СОЛО") : "")}";
             var size = g.MeasureString(s, info);
             float bx = Math.Clamp(x - size.Width / 2 - 8, p.Left, Math.Max(p.Left, p.Right - size.Width - 16));
             float by = y - 44 < p.Top ? y + 16 : y - 44;
@@ -154,15 +154,15 @@ internal sealed class ParametricGraph : Control
         }
 
         if (bands.Count == 0)
-            g.DrawString(L("Двойной клик по графику — добавить полосу", "Double-click the graph to add a band"), info, text, p.Left + 12, p.Top + 10);
+            g.DrawString(L("Двойной клик по графику — добавить полосу", "Double-click the graph to add a band", "Жолақ қосу үшін графикті қос шертіңіз"), info, text, p.Left + 12, p.Top + 10);
     }
 
-    public static string FormatHz(double f) => f >= 1000 ? $"{f / 1000:0.##} " + L("кГц", "kHz") : $"{f:0.#} " + L("Гц", "Hz");
+    public static string FormatHz(double f) => f >= 1000 ? $"{f / 1000:0.##} " + L("кГц", "kHz", "кГц") : $"{f:0.#} " + L("Гц", "Hz", "Гц");
 
     public static string TypeName(string type) => type switch
     {
-        "LS" => L("Низкая полка", "Low shelf"), "HS" => L("Высокая полка", "High shelf"), "LP" => L("Срез верхов", "Low-pass"),
-        "HP" => L("Срез низов", "High-pass"), "NO" => L("Режекция (вырез)", "Notch"), "BP" => L("Полосовой", "Band-pass"), _ => L("Колокол", "Bell"),
+        "LS" => L("Низкая полка", "Low shelf", "Төменгі сөре"), "HS" => L("Высокая полка", "High shelf", "Жоғарғы сөре"), "LP" => L("Срез верхов", "Low-pass", "Жоғарыны кесу"),
+        "HP" => L("Срез низов", "High-pass", "Төменгіні кесу"), "NO" => L("Режекция (вырез)", "Notch", "Режекция (ойық)"), "BP" => L("Полосовой", "Band-pass", "Жолақтық"), _ => L("Колокол", "Bell", "Қоңырау"),
     };
 
     void DrawSpectrum(Graphics g, RectangleF p)
@@ -400,8 +400,8 @@ internal sealed class ParametricGraph : Control
             menu.Items.Add(item);
         }
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(bands[index].Enabled ? L("Выключить полосу", "Disable band") : L("Включить полосу", "Enable band"), null, (_, _) => ToggleRequested?.Invoke(index));
-        menu.Items.Add(L("Удалить полосу", "Remove band"), null, (_, _) => RemoveRequested?.Invoke(index));
+        menu.Items.Add(bands[index].Enabled ? L("Выключить полосу", "Disable band", "Жолақты өшіру") : L("Включить полосу", "Enable band", "Жолақты қосу"), null, (_, _) => ToggleRequested?.Invoke(index));
+        menu.Items.Add(L("Удалить полосу", "Remove band", "Жолақты жою"), null, (_, _) => RemoveRequested?.Invoke(index));
         menu.Closed += (_, _) => BeginInvoke(new Action(menu.Dispose));
         menu.Show(this, location);
     }

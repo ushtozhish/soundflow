@@ -12,12 +12,12 @@ internal sealed record DeviceInfo(string Id, string Name, int Channels)
     /// <summary>Speaker names for the standard Windows layouts (same order as APO channel numbers).</summary>
     public string[] ChannelNames => Channels switch
     {
-        1 => [L("Моно", "Mono")],
+        1 => [L("Моно", "Mono", "Моно")],
         2 => ["L", "R"],
-        4 => ["L", "R", L("Тыл L", "Rear L"), L("Тыл R", "Rear R")],
-        6 => ["L", "R", L("Центр", "Center"), L("Сабвуфер", "Sub"), L("Тыл L", "Rear L"), L("Тыл R", "Rear R")],
-        8 => ["L", "R", L("Центр", "Center"), L("Сабвуфер", "Sub"), L("Тыл L", "Rear L"), L("Тыл R", "Rear R"), L("Бок L", "Side L"), L("Бок R", "Side R")],
-        _ => Enumerable.Range(1, Channels).Select(i => L("Канал ", "Channel ") + i).ToArray(),
+        4 => ["L", "R", L("Тыл L", "Rear L", "Артқы L"), L("Тыл R", "Rear R", "Артқы R")],
+        6 => ["L", "R", L("Центр", "Center", "Орталық"), L("Сабвуфер", "Sub", "Сабвуфер"), L("Тыл L", "Rear L", "Артқы L"), L("Тыл R", "Rear R", "Артқы R")],
+        8 => ["L", "R", L("Центр", "Center", "Орталық"), L("Сабвуфер", "Sub", "Сабвуфер"), L("Тыл L", "Rear L", "Артқы L"), L("Тыл R", "Rear R", "Артқы R"), L("Бок L", "Side L", "Бүйір L"), L("Бок R", "Side R", "Бүйір R")],
+        _ => Enumerable.Range(1, Channels).Select(i => L("Канал ", "Channel ", "Арна ") + i).ToArray(),
     };
 }
 

@@ -88,7 +88,7 @@ internal sealed class Settings
     /// <summary>Delays the Windows device so it lines up with copies on other cards.</summary>
     public int MainDelayMs { get; set; }
     public int DisplayRange { get; set; } = 12;
-    /// <summary>"" = by Windows language, "ru" or "en".</summary>
+    /// <summary>"" = by Windows language, "ru", "en" or "kk".</summary>
     public string Language { get; set; } = "";
 
     public static List<Band> DefaultParametric() =>
@@ -112,7 +112,7 @@ internal sealed class Settings
         foreach (var b in Parametric) Store.NormalizeBand(b);
         Mode = Math.Clamp(Mode, 0, 1);
         DisplayRange = DisplayRange is 12 or 24 or 48 ? DisplayRange : 12;
-        Language = Language is "ru" or "en" ? Language : "";
+        Language = Language is "ru" or "en" or "kk" ? Language : "";
         UserProfiles ??= [];
         Channels ??= [];
         Routes ??= [];
@@ -270,21 +270,36 @@ internal static class Log
     }
 }
 
-/// <summary>Two-language UI: Russian and English.</summary>
+/// <summary>UI language: Russian, English or Kazakh.</summary>
 internal static class Lang
 {
-    public static bool En { get; private set; }
+    public enum Ui { Ru, En, Kk }
+    public static Ui Current { get; private set; }
+    public static bool En => Current == Ui.En;
+    public static string Code => Current switch { Ui.En => "en", Ui.Kk => "kk", _ => "ru" };
 
     public static void Set(string? code)
     {
         string system = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-        En = code switch
+        Current = code switch
         {
-            "en" => true,
-            "ru" => false,
-            _ => system is not ("ru" or "kk" or "be" or "uk" or "ky" or "uz"),
+            "en" => Ui.En,
+            "ru" => Ui.Ru,
+            "kk" => Ui.Kk,
+            _ => system switch
+            {
+                "kk" => Ui.Kk,
+                "ru" or "be" or "uk" or "ky" or "uz" => Ui.Ru,
+                _ => Ui.En,
+            },
         };
     }
 
-    public static string L(string ru, string en) => En ? en : ru;
+    /// <summary>Picks the text for the current language; Kazakh falls back to Russian if missing.</summary>
+    public static string L(string ru, string en, string? kk = null) => Current switch
+    {
+        Ui.En => en,
+        Ui.Kk => kk ?? ru,
+        _ => ru,
+    };
 }

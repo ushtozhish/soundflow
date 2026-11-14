@@ -18,14 +18,16 @@ internal static class Program
         Application.ThreadException += (_, e) =>
         {
             Log.Error("Необработанная ошибка в интерфейсе", e.Exception);
-            MessageBox.Show(L("Произошла ошибка, SoundFlow продолжает работать.\n\n", "An error occurred, SoundFlow keeps running.\n\n") + e.Exception.Message +
-                L("\n\nПодробности — в журнале (меню в трее → «Папка с настройками и журналом»).", "\n\nDetails are in the log (tray menu → “Settings and log folder”)."),
+            MessageBox.Show(L("Произошла ошибка, SoundFlow продолжает работать.\n\n", "An error occurred, SoundFlow keeps running.\n\n", "Қате орын алды, SoundFlow жұмысын жалғастыруда.\n\n") + e.Exception.Message +
+                L("\n\nПодробности — в журнале (меню в трее → «Папка с настройками и журналом»).", "\n\nDetails are in the log (tray menu → “Settings and log folder”).", "\n\nТолығы — журналда (науадағы мәзір → «Баптаулар мен журнал қалтасы»)."),
                 "SoundFlow", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         };
         AppDomain.CurrentDomain.UnhandledException += (_, e) => Log.Error("Критическая ошибка", e.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException += (_, e) => { Log.Error("Фоновая ошибка", e.Exception); e.SetObserved(); };
 
         if (Has(args, "--prepare-apo")) return PrepareApo();
+        int shots = Array.FindIndex(args, a => a.Equals("--screenshots", StringComparison.OrdinalIgnoreCase));
+        if (shots >= 0 && shots + 1 < args.Length) return Screenshots(args[shots + 1]);
         if (Has(args, "--uninstall")) return Uninstaller.Run(silent: Has(args, "--quiet"));
 
         // after a language switch the new copy waits for the old one to exit
@@ -53,6 +55,25 @@ internal static class Program
         return 0;
     }
 
+    /// <summary>Demo screenshots for the README in every language (used by GitHub Actions).</summary>
+    static int Screenshots(string folder)
+    {
+        foreach (var code in new[] { "en", "ru", "kk" })
+        {
+            Lang.Set(code);
+            using var form = new MainForm(startHidden: false, demo: true)
+            {
+                StartPosition = FormStartPosition.Manual,
+                Location = new Point(0, 0),
+                Size = new Size(1240, 800),
+            };
+            form.Show();
+            form.CaptureScreens(folder);
+            form.Hide();
+        }
+        return 0;
+    }
+
     static bool Has(string[] args, string flag) => args.Any(a => a.Equals(flag, StringComparison.OrdinalIgnoreCase));
 
     public static bool IsAdmin()
@@ -73,7 +94,7 @@ internal static class Program
         catch (Exception ex)
         {
             Log.Error("Подготовка конфига APO", ex);
-            MessageBox.Show(L("Не удалось настроить Equalizer APO:\n", "Could not set up Equalizer APO:\n") + ex.Message, "SoundFlow", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(L("Не удалось настроить Equalizer APO:\n", "Could not set up Equalizer APO:\n", "Equalizer APO баптау мүмкін болмады:\n") + ex.Message, "SoundFlow", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return 1;
         }
     }
@@ -105,8 +126,11 @@ internal static class Uninstaller
                 "Да — удалить и стереть мои профили и настройки\nНет — удалить, но оставить настройки\nОтмена — ничего не делать",
                 "Remove SoundFlow from this computer?\n\nSoundFlow settings will be removed from Equalizer APO, sound returns to no EQ.\n" +
                 "Equalizer APO itself stays (remove it separately in “Apps & features”).\n\n" +
-                "Yes — remove and erase my profiles and settings\nNo — remove but keep settings\nCancel — do nothing"),
-                L("Удаление SoundFlow", "Uninstall SoundFlow"), MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                "Yes — remove and erase my profiles and settings\nNo — remove but keep settings\nCancel — do nothing",
+                "SoundFlow-ды осы компьютерден жою керек пе?\n\nSoundFlow баптаулары Equalizer APO-дан алынады, дыбыс эквалайзерсіз күйге оралады.\n" +
+                "Equalizer APO өзі қалады (оны «Бағдарламаларды орнату және жою» арқылы бөлек жоюға болады).\n\n" +
+                "Иә — жою және профильдер мен баптауларды өшіру\nЖоқ — жою, бірақ баптауларды қалдыру\nБас тарту — ештеңе істемеу"),
+                L("Удаление SoundFlow", "Uninstall SoundFlow", "SoundFlow жою"), MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
             if (answer == DialogResult.Cancel) return 0;
             removeSettings = answer == DialogResult.Yes;
         }
@@ -130,13 +154,13 @@ internal static class Uninstaller
 
             // The running exe cannot delete itself — let cmd remove the folder after we exit.
             Process.Start(new ProcessStartInfo("cmd.exe", $"/c timeout /t 2 /nobreak >nul & rmdir /s /q \"{InstallDir}\"") { CreateNoWindow = true, UseShellExecute = false });
-            if (!silent) MessageBox.Show(L("SoundFlow удалён.", "SoundFlow has been removed."), "SoundFlow", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (!silent) MessageBox.Show(L("SoundFlow удалён.", "SoundFlow has been removed.", "SoundFlow жойылды."), "SoundFlow", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return 0;
         }
         catch (Exception ex)
         {
             Log.Error("Удаление", ex);
-            if (!silent) MessageBox.Show(ex.Message, L("Не удалось удалить SoundFlow", "Could not remove SoundFlow"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            if (!silent) MessageBox.Show(ex.Message, L("Не удалось удалить SoundFlow", "Could not remove SoundFlow", "SoundFlow жою мүмкін болмады"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             return 1;
         }
     }

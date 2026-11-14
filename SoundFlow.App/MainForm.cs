@@ -8,15 +8,15 @@ namespace SoundFlow;
 internal sealed class MainForm : Form
 {
     public static readonly int[] GraphicFrequencies = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
-    sealed record BuiltIn(string Id, string Ru, string En, double[] Values);
+    sealed record BuiltIn(string Id, string Ru, string En, string Kk, double[] Values);
     static readonly BuiltIn[] BuiltInProfiles =
     [
-        new("flat", "Ровный", "Flat", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-        new("bass", "Больше баса", "Bass boost", [6, 5, 3, 1, 0, -1, -1, 0, 1, 1]),
-        new("vocal", "Вокал", "Vocal", [-2, -1, 0, 2, 4, 4, 3, 1, 0, -1]),
-        new("games", "Игры", "Games", [3, 2, 0, -1, -1, 1, 3, 4, 3, 2]),
-        new("night", "Ночной режим", "Night", [-4, -3, -1, 1, 3, 3, 2, 0, -2, -3]),
-        new("bright", "Яркий", "Bright", [-2, -1, 0, 0, 1, 2, 3, 4, 5, 5]),
+        new("flat", "Ровный", "Flat", "Тегіс", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+        new("bass", "Больше баса", "Bass boost", "Көбірек бас", [6, 5, 3, 1, 0, -1, -1, 0, 1, 1]),
+        new("vocal", "Вокал", "Vocal", "Вокал", [-2, -1, 0, 2, 4, 4, 3, 1, 0, -1]),
+        new("games", "Игры", "Games", "Ойындар", [3, 2, 0, -1, -1, 1, 3, 4, 3, 2]),
+        new("night", "Ночной режим", "Night", "Түнгі режим", [-4, -3, -1, 1, 3, 3, 2, 0, -2, -3]),
+        new("bright", "Яркий", "Bright", "Жарқын", [-2, -1, 0, 0, 1, 2, 3, 4, 5, 5]),
     ];
 
     /// <summary>Item of the profile list: Id is a built-in id or "★ name" for user profiles.</summary>
@@ -31,7 +31,7 @@ internal sealed class MainForm : Form
     static Color Card => Color.FromArgb(18, 20, 25);
 
     Settings s;
-    readonly bool startHidden;
+    readonly bool startHidden, demo;
     bool holdApply;               // fresh settings + an existing APO config: don't overwrite until the user changes something
     bool updating;                // UI is being filled from settings
     int soloBand = -1;
@@ -72,17 +72,20 @@ internal sealed class MainForm : Form
     ToolStripMenuItem? trayEnabled, trayAutostart;
     Font? boldGridFont;
 
-    public MainForm(bool startHidden)
+    public MainForm(bool startHidden, bool demo = false)
     {
         this.startHidden = startHidden;
-        (s, bool found) = Store.Load();
-        if (!found && Apo.ReadCurrent() is { } existing && existing.Contains("Preamp", StringComparison.OrdinalIgnoreCase))
+        this.demo = demo;
+        bool found = true;
+        if (demo) s = Demo.Settings();
+        else (s, found) = Store.Load();
+        if (!demo && !found && Apo.ReadCurrent() is { } existing && existing.Contains("Preamp", StringComparison.OrdinalIgnoreCase))
         {
             holdApply = true;
             Log.Info("Настройки не найдены, но конфиг APO уже есть — он не будет перезаписан до первого изменения.");
         }
 
-        Text = L("SoundFlow — системный эквалайзер", "SoundFlow — system equalizer");
+        Text = L("SoundFlow — системный эквалайзер", "SoundFlow — system equalizer", "SoundFlow — жүйелік эквалайзер");
         Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application;
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
@@ -99,9 +102,9 @@ internal sealed class MainForm : Form
         BuildTray();
 
         graph.BandsProvider = () => s.Parametric;
-        graph.SpectrumProvider = analyzer.Snapshot;
+        graph.SpectrumProvider = demo ? Demo.Spectrum : analyzer.Snapshot;
         applyTimer.Tick += (_, _) => { applyTimer.Stop(); Apply(); };
-        saveTimer.Tick += (_, _) => { saveTimer.Stop(); Store.Save(s); Commit(); };
+        saveTimer.Tick += (_, _) => { saveTimer.Stop(); if (!demo) Store.Save(s); Commit(); };
         visualTimer.Tick += (_, _) => { if (tabs.SelectedIndex == 0 && s.Mode == 1 && Visible && WindowState != FormWindowState.Minimized) graph.Invalidate(); };
         watchdog.Tick += (_, _) => Watchdog();
         watcher.Changed += () => { try { if (IsHandleCreated) BeginInvoke(new Action(RefreshDevice)); } catch { } };
@@ -111,6 +114,7 @@ internal sealed class MainForm : Form
         RefreshDevice();
         FillFromSettings();
         Commit();
+        if (demo) { UpdateStatus(); return; }
         ApplyAutostart();
         if (!holdApply) Apply(); else UpdateStatus();
         visualTimer.Start();
@@ -122,10 +126,10 @@ internal sealed class MainForm : Form
             {
                 e.Cancel = true;
                 Hide();
-                tray.ShowBalloonTip(1000, "SoundFlow", L("Эквалайзер продолжает работать. SoundFlow — в области уведомлений.", "The equalizer keeps working. SoundFlow is in the notification area."), ToolTipIcon.Info);
+                tray.ShowBalloonTip(1000, "SoundFlow", L("Эквалайзер продолжает работать. SoundFlow — в области уведомлений.", "The equalizer keeps working. SoundFlow is in the notification area.", "Эквалайзер жұмысын жалғастыруда. SoundFlow хабарландыру аймағында."), ToolTipIcon.Info);
                 return;
             }
-            Store.Save(s);
+            if (!demo) Store.Save(s);
         };
         FormClosed += (_, _) => Shutdown();
         VisibleChanged += (_, _) => UpdateAnalyzer();
@@ -159,22 +163,23 @@ internal sealed class MainForm : Form
         tray.Visible = true;
         tray.DoubleClick += (_, _) => RestoreWindow();
         var menu = new ContextMenuStrip();
-        menu.Items.Add(L("Открыть SoundFlow", "Open SoundFlow"), null, (_, _) => RestoreWindow());
-        trayEnabled = new ToolStripMenuItem(L("Обработка включена", "Processing on")) { CheckOnClick = true };
+        menu.Items.Add(L("Открыть SoundFlow", "Open SoundFlow", "SoundFlow ашу"), null, (_, _) => RestoreWindow());
+        trayEnabled = new ToolStripMenuItem(L("Обработка включена", "Processing on", "Өңдеу қосулы")) { CheckOnClick = true };
         trayEnabled.Click += (_, _) => enabled.Checked = trayEnabled.Checked;
         menu.Items.Add(trayEnabled);
-        trayAutostart = new ToolStripMenuItem(L("Запускать вместе с Windows", "Start with Windows")) { CheckOnClick = true };
+        trayAutostart = new ToolStripMenuItem(L("Запускать вместе с Windows", "Start with Windows", "Windows-пен бірге іске қосу")) { CheckOnClick = true };
         trayAutostart.Click += (_, _) => { s.StartWithWindows = trayAutostart.Checked; ApplyAutostart(); ScheduleSave(); };
         menu.Items.Add(trayAutostart);
-        menu.Items.Add(L("Папка с настройками и журналом", "Settings and log folder"), null, (_, _) => OpenFolder(Store.Folder));
+        menu.Items.Add(L("Папка с настройками и журналом", "Settings and log folder", "Баптаулар мен журнал қалтасы"), null, (_, _) => OpenFolder(Store.Folder));
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(L("Выход", "Exit"), null, (_, _) => { Store.Save(s); tray.Visible = false; Application.Exit(); });
+        menu.Items.Add(L("Выход", "Exit", "Шығу"), null, (_, _) => { Store.Save(s); tray.Visible = false; Application.Exit(); });
         menu.Opening += (_, _) => { trayEnabled.Checked = s.Enabled; trayAutostart.Checked = s.StartWithWindows; };
         tray.ContextMenuStrip = menu;
     }
 
     void Shutdown()
     {
+        if (demo) { tray.Visible = false; return; }
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         SystemEvents.SessionEnding -= OnSessionEnding;
         Store.Save(s);
@@ -241,9 +246,10 @@ internal sealed class MainForm : Form
         var right = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, Anchor = AnchorStyles.Right, WrapContents = false };
         right.Controls.Add(enabled);
         var language = new NoWheelComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110, Anchor = AnchorStyles.Right, Margin = new(0, 6, 0, 0) };
-        language.Items.AddRange("Русский", "English");
-        language.SelectedIndex = Lang.En ? 1 : 0;
-        language.SelectionChangeCommitted += (_, _) => SwitchLanguage(language.SelectedIndex == 1 ? "en" : "ru");
+        string[] codes = ["ru", "en", "kk"];
+        language.Items.AddRange("Русский", "English", "Қазақша");
+        language.SelectedIndex = Array.IndexOf(codes, Lang.Code);
+        language.SelectionChangeCommitted += (_, _) => SwitchLanguage(codes[language.SelectedIndex]);
         right.Controls.Add(language);
         header.Controls.Add(right, 2, 0);
         root.Controls.Add(header, 0, 0);
@@ -254,7 +260,7 @@ internal sealed class MainForm : Form
         controls.ColumnStyles.Add(new(SizeType.Percent, 100));
         controls.ColumnStyles.Add(new(SizeType.Absolute, 90));
         controls.ColumnStyles.Add(new(SizeType.AutoSize));
-        controls.Controls.Add(new Label { Text = L("ПРЕДУСИЛЕНИЕ", "PREAMP"), ForeColor = Muted, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new(0, 0, 10, 0) }, 0, 0);
+        controls.Controls.Add(new Label { Text = L("ПРЕДУСИЛЕНИЕ", "PREAMP", "АЛДЫН АЛА КҮШЕЙТУ"), ForeColor = Muted, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new(0, 0, 10, 0) }, 0, 0);
         preamp.Minimum = -24;
         preamp.Maximum = 24;
         preamp.TickFrequency = 4;
@@ -274,7 +280,7 @@ internal sealed class MainForm : Form
         preampValue.Anchor = AnchorStyles.Left;
         preampValue.Font = new("Segoe UI", 10, FontStyle.Bold);
         controls.Controls.Add(preampValue, 2, 0);
-        autoComp.Text = L("Компенсировать подъём EQ", "Compensate EQ boost");
+        autoComp.Text = L("Компенсировать подъём EQ", "Compensate EQ boost", "EQ көтерілуін өтеу");
         autoComp.AutoSize = true;
         autoComp.Anchor = AnchorStyles.Right;
         autoComp.CheckedChanged += (_, _) => { if (updating) return; s.AutoCompensate = autoComp.Checked; Changed(); };
@@ -284,7 +290,10 @@ internal sealed class MainForm : Form
             "убирает эти 6 dB на выходе, чтобы самые громкие места не стали громче. Ползунок при этом не двигается.",
             "Off (usual): only the preamp slider sets the level.\n" +
             "On: if the EQ raises something, e.g. +6 dB of bass, SoundFlow takes those 6 dB off the output\n" +
-            "so the loudest parts don't get louder. The slider itself is not moved."));
+            "so the loudest parts don't get louder. The slider itself is not moved.",
+            "Өшірулі (әдетте): деңгейді тек алдын ала күшейту жүгірткісі белгілейді.\n" +
+            "Қосулы: эквалайзер бір жерде дыбысты көтерсе, мысалы басқа +6 dB, SoundFlow сол 6 dB-ді\n" +
+            "шығыста өзі алып тастайды, ең қатты жерлер қаттырақ болмайды. Жүгірткі жылжымайды."));
         controls.Controls.Add(autoComp, 3, 0);
         root.Controls.Add(controls, 0, 1);
 
@@ -294,8 +303,8 @@ internal sealed class MainForm : Form
         tabs.Dock = DockStyle.Fill;
         tabs.Font = new("Segoe UI", 9, FontStyle.Bold);
         tabs.Padding = new(14, 5);
-        var eqPage = new TabPage(L("ЭКВАЛИЗАЦИЯ", "EQUALIZER")) { BackColor = Card, ForeColor = ForeColor, Padding = new(8) };
-        var routingPage = new TabPage(L("МАРШРУТИЗАЦИЯ", "ROUTING")) { BackColor = Card, ForeColor = ForeColor, Padding = new(8) };
+        var eqPage = new TabPage(L("ЭКВАЛИЗАЦИЯ", "EQUALIZER", "ЭКВАЛАЙЗЕР")) { BackColor = Card, ForeColor = ForeColor, Padding = new(8) };
+        var routingPage = new TabPage(L("МАРШРУТИЗАЦИЯ", "ROUTING", "БАҒЫТТАУ")) { BackColor = Card, ForeColor = ForeColor, Padding = new(8) };
         tabs.TabPages.Add(eqPage);
         tabs.TabPages.Add(routingPage);
         tabs.SelectedIndexChanged += (_, _) => UpdateAnalyzer();
@@ -306,8 +315,8 @@ internal sealed class MainForm : Form
         eqLayout.RowStyles.Add(new(SizeType.Percent, 100));
         eqPage.Controls.Add(eqLayout);
         var modes = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Margin = new(0, 0, 0, 6) };
-        modeGraphic = ModeButton(L("Графический, 10 полос", "Graphic, 10 bands"));
-        modeParametric = ModeButton(L("Параметрический", "Parametric"));
+        modeGraphic = ModeButton(L("Графический, 10 полос", "Graphic, 10 bands", "Графикалық, 10 жолақ"));
+        modeParametric = ModeButton(L("Параметрический", "Parametric", "Параметрлік"));
         modeGraphic.Click += (_, _) => SetMode(0);
         modeParametric.Click += (_, _) => SetMode(1);
         modes.Controls.AddRange([modeGraphic, modeParametric]);
@@ -330,20 +339,20 @@ internal sealed class MainForm : Form
         foot.ColumnStyles.Add(new(SizeType.AutoSize));
         foot.ColumnStyles.Add(new(SizeType.Percent, 100));
         foot.ColumnStyles.Add(new(SizeType.AutoSize));
-        foot.Controls.Add(new Label { Text = L("ПРОФИЛЬ", "PROFILE"), ForeColor = Muted, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new(0, 0, 10, 0) }, 0, 0);
+        foot.Controls.Add(new Label { Text = L("ПРОФИЛЬ", "PROFILE", "ПРОФИЛЬ"), ForeColor = Muted, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new(0, 0, 10, 0) }, 0, 0);
         profile.DropDownStyle = ComboBoxStyle.DropDownList;
         profile.Dock = DockStyle.Fill;
         profile.SelectionChangeCommitted += (_, _) => SelectProfile();
         foot.Controls.Add(profile, 1, 0);
-        var saveProfile = SmallButton(L("Сохранить как…", "Save as…"), Acid);
+        var saveProfile = SmallButton(L("Сохранить как…", "Save as…", "Басқаша сақтау…"), Acid);
         saveProfile.Click += (_, _) => SaveProfile();
         foot.Controls.Add(saveProfile, 2, 0);
-        var deleteProfile = SmallButton(L("Удалить", "Delete"), Color.FromArgb(255, 130, 120));
+        var deleteProfile = SmallButton(L("Удалить", "Delete", "Жою"), Color.FromArgb(255, 130, 120));
         deleteProfile.Click += (_, _) => DeleteProfile();
         foot.Controls.Add(deleteProfile, 3, 0);
         headroom.AutoSize = true;
         headroom.Anchor = AnchorStyles.None;
-        tips.SetToolTip(headroom, L("Насколько итоговый уровень после предусиления и эквалайзера выше или ниже 0 dB.", "How far the final level after preamp and EQ is above or below 0 dB."));
+        tips.SetToolTip(headroom, L("Насколько итоговый уровень после предусиления и эквалайзера выше или ниже 0 dB.", "How far the final level after preamp and EQ is above or below 0 dB.", "Алдын ала күшейту мен эквалайзерден кейінгі қорытынды деңгей 0 dB-ден қаншалықты жоғары не төмен."));
         foot.Controls.Add(headroom, 4, 0);
         status.AutoSize = true;
         status.Anchor = AnchorStyles.Right;
@@ -357,11 +366,11 @@ internal sealed class MainForm : Form
     void ResetOnRightClick(TrackBar bar)
     {
         bar.MouseUp += (_, e) => { if (e.Button == MouseButtons.Right) bar.Value = Math.Clamp(0, bar.Minimum, bar.Maximum); };
-        tips.SetToolTip(bar, L("Правый клик — сбросить в 0 dB", "Right-click — reset to 0 dB"));
+        tips.SetToolTip(bar, L("Правый клик — сбросить в 0 dB", "Right-click — reset to 0 dB", "Оң жақ шерту — 0 dB-ге қайтару"));
     }
 
-    static string EnabledText(bool on) => on ? L("  ОБРАБОТКА ВКЛЮЧЕНА", "  PROCESSING ON") : L("  ОБРАБОТКА ВЫКЛЮЧЕНА", "  PROCESSING OFF");
-    static string SlopeText(int slope) => $"{slope} " + L("dB/окт", "dB/oct");
+    static string EnabledText(bool on) => on ? L("  ОБРАБОТКА ВКЛЮЧЕНА", "  PROCESSING ON", "  ӨҢДЕУ ҚОСУЛЫ") : L("  ОБРАБОТКА ВЫКЛЮЧЕНА", "  PROCESSING OFF", "  ӨҢДЕУ ӨШІРУЛІ");
+    static string SlopeText(int slope) => $"{slope} " + L("dB/окт", "dB/oct", "dB/окт");
 
     static Button IconButton(string icon) => new()
     {
@@ -434,7 +443,7 @@ internal sealed class MainForm : Form
             int f = GraphicFrequencies[i];
             eq.Controls.Add(graphicValues[i], i, 0);
             eq.Controls.Add(graphic[i], i, 1);
-            eq.Controls.Add(new Label { Text = (f < 1000 ? f.ToString() : f / 1000 + "k") + L("\nГц", "\nHz"), AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, Font = new("Segoe UI", 9, FontStyle.Bold), Padding = new(0, 4, 0, 0) }, i, 2);
+            eq.Controls.Add(new Label { Text = (f < 1000 ? f.ToString() : f / 1000 + "k") + L("\nГц", "\nHz", "\nГц"), AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, Font = new("Segoe UI", 9, FontStyle.Bold), Padding = new(0, 4, 0, 0) }, i, 2);
         }
     }
 
@@ -479,17 +488,17 @@ internal sealed class MainForm : Form
         grid.EnableHeadersVisualStyles = false;
         grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "N", HeaderText = "№", FillWeight = 22, ReadOnly = true });
-        grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "On", HeaderText = L("ВКЛ", "ON"), FillWeight = 28 });
-        var type = new DataGridViewComboBoxColumn { Name = "Type", HeaderText = L("ТИП", "TYPE"), FillWeight = 105, FlatStyle = FlatStyle.Flat };
+        grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "On", HeaderText = L("ВКЛ", "ON", "ҚОС"), FillWeight = 28 });
+        var type = new DataGridViewComboBoxColumn { Name = "Type", HeaderText = L("ТИП", "TYPE", "ТҮРІ"), FillWeight = 105, FlatStyle = FlatStyle.Flat };
         foreach (var t in new[] { "PK", "LS", "HS", "HP", "LP", "NO", "BP" }) type.Items.Add(ParametricGraph.TypeName(t));
         grid.Columns.Add(type);
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Fc", HeaderText = L("ЧАСТОТА, Гц", "FREQ, Hz"), FillWeight = 70 });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Gain", HeaderText = L("УСИЛЕНИЕ, dB", "GAIN, dB"), FillWeight = 70 });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Fc", HeaderText = L("ЧАСТОТА, Гц", "FREQ, Hz", "ЖИІЛІК, Гц"), FillWeight = 70 });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Gain", HeaderText = L("УСИЛЕНИЕ, dB", "GAIN, dB", "КҮШЕЙТУ, dB"), FillWeight = 70 });
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Q", HeaderText = "Q", FillWeight = 50 });
-        var slope = new DataGridViewComboBoxColumn { Name = "Slope", HeaderText = L("КРУТИЗНА", "SLOPE"), FillWeight = 60, FlatStyle = FlatStyle.Flat };
+        var slope = new DataGridViewComboBoxColumn { Name = "Slope", HeaderText = L("КРУТИЗНА", "SLOPE", "ЕҢІС"), FillWeight = 60, FlatStyle = FlatStyle.Flat };
         slope.Items.AddRange("—", SlopeText(12), SlopeText(24), SlopeText(36), SlopeText(48));
         grid.Columns.Add(slope);
-        grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Ch", HeaderText = L("КАНАЛЫ", "CHANNELS"), FillWeight = 70, FlatStyle = FlatStyle.Flat });
+        grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Ch", HeaderText = L("КАНАЛЫ", "CHANNELS", "АРНАЛАР"), FillWeight = 70, FlatStyle = FlatStyle.Flat });
         grid.CurrentCellDirtyStateChanged += (_, _) => { if (grid.IsCurrentCellDirty && grid.CurrentCell is DataGridViewComboBoxCell or DataGridViewCheckBoxCell) grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
         grid.CellValueChanged += (_, e) => { if (!updating && e.RowIndex >= 0) GridEdited(e.RowIndex); };
         grid.SelectionChanged += (_, _) => { if (!updating && grid.CurrentRow is { } r) graph.Selected = r.Index; };
@@ -505,21 +514,20 @@ internal sealed class MainForm : Form
         layout.Controls.Add(grid, 0, 1);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, Padding = new(0, 6, 0, 0) };
-        var add = SmallButton(L("＋ Добавить полосу", "＋ Add band"), Acid);
+        var add = SmallButton(L("＋ Добавить полосу", "＋ Add band", "＋ Жолақ қосу"), Acid);
         add.Click += (_, _) => AddBand(new Band { Type = "PK", Frequency = 1000, Q = 1 });
-        var remove = SmallButton(L("− Удалить выбранную", "− Remove selected"), Color.FromArgb(255, 130, 120));
+        var remove = SmallButton(L("− Удалить выбранную", "− Remove selected", "− Таңдалғанды жою"), Color.FromArgb(255, 130, 120));
         remove.Click += (_, _) => { if (grid.CurrentRow is { } r) RemoveBand(r.Index); };
         var undo = IconButton("↶");
         undo.Click += (_, _) => Undo();
         var redo = IconButton("↷");
         redo.Click += (_, _) => Redo();
-        tips.SetToolTip(undo, L("Отменить (Ctrl+Z)", "Undo (Ctrl+Z)"));
-        tips.SetToolTip(redo, L("Вернуть (Ctrl+Y)", "Redo (Ctrl+Y)"));
+        tips.SetToolTip(undo, L("Отменить (Ctrl+Z)", "Undo (Ctrl+Z)", "Болдырмау (Ctrl+Z)"));
+        tips.SetToolTip(redo, L("Вернуть (Ctrl+Y)", "Redo (Ctrl+Y)", "Қайтару (Ctrl+Y)"));
         buttons.Controls.AddRange([add, remove, undo, redo]);
         buttons.Controls.Add(new Label
         {
-            Text = L("Тяни точку — частота и усиление  •  стрелки по бокам или колесо — ширина (Q)  •  Shift — точнее  •  Ctrl + тянуть — слушать только эту полосу  •  двойной клик — добавить / удалить  •  правый клик — сбросить в 0 dB  •  Shift + правый клик — тип фильтра",
-                     "Drag a dot — frequency and gain  •  side arrows or wheel — width (Q)  •  Shift — finer  •  Ctrl + drag — listen to this band alone  •  double-click — add / remove  •  right-click — reset to 0 dB  •  Shift + right-click — filter type"),
+            Text = L("Тяни точку — частота и усиление  •  стрелки по бокам или колесо — ширина (Q)  •  Shift — точнее  •  Ctrl + тянуть — слушать только эту полосу  •  двойной клик — добавить / удалить  •  правый клик — сбросить в 0 dB  •  Shift + правый клик — тип фильтра", "Drag a dot — frequency and gain  •  side arrows or wheel — width (Q)  •  Shift — finer  •  Ctrl + drag — listen to this band alone  •  double-click — add / remove  •  right-click — reset to 0 dB  •  Shift + right-click — filter type", "Нүктені тартыңыз — жиілік пен күшейту  •  бүйірдегі көрсеткілер не дөңгелек — ені (Q)  •  Shift — дәлірек  •  Ctrl + тарту — тек осы жолақты тыңдау  •  қос шерту — қосу / жою  •  оң жақ шерту — 0 dB-ге қайтару  •  Shift + оң жақ шерту — сүзгі түрі"),
             MaximumSize = new(1100, 0),
             AutoSize = true, ForeColor = Muted, Padding = new(10, 6, 0, 0),
         });
@@ -609,7 +617,7 @@ internal sealed class MainForm : Form
 
     void RefreshOutputs()
     {
-        var list = Router.ListOutputs();
+        var list = demo ? Demo.Outputs : Router.ListOutputs();
         bool same = list.Count == outputsList.Count && list.Zip(outputsList).All(p => p.First.Id == p.Second.Id && p.First.Channels == p.Second.Channels && p.First.IsDefault == p.Second.IsDefault);
         if (same) return;
         outputsList = list;
@@ -629,10 +637,9 @@ internal sealed class MainForm : Form
     {
         outputStrip.SuspendLayout();
         outputStrip.Controls.Clear();
-        var delayLabel = new Label { Text = L("Задержка устройства Windows, мс", "Windows device delay, ms"), AutoSize = true, ForeColor = Muted, Margin = new(0, 8, 6, 0) };
+        var delayLabel = new Label { Text = L("Задержка устройства Windows, мс", "Windows device delay, ms", "Windows құрылғысының кідірісі, мс"), AutoSize = true, ForeColor = Muted, Margin = new(0, 8, 6, 0) };
         var delay = new NumericUpDown { Minimum = 0, Maximum = 500, Value = s.MainDelayMs, Width = Scale(64), Margin = new(0, 4, 18, 0) };
-        tips.SetToolTip(delay, L("Звук на другие карты приходит чуть позже (обычно 30–60 мс). Задержите основное устройство на столько же, чтобы всё звучало вместе.",
-                                 "Copies on other cards arrive slightly later (usually 30–60 ms). Delay the main device by the same amount so everything plays together."));
+        tips.SetToolTip(delay, L("Звук на другие карты приходит чуть позже (обычно 30–60 мс). Задержите основное устройство на столько же, чтобы всё звучало вместе.", "Copies on other cards arrive slightly later (usually 30–60 ms). Delay the main device by the same amount so everything plays together.", "Басқа карталарға дыбыс сәл кешірек жетеді (әдетте 30–60 мс). Бәрі бірге дыбыстау үшін негізгі құрылғыны да сонша кідіртіңіз."));
         delay.ValueChanged += (_, _) => { if (updating) return; s.MainDelayMs = (int)delay.Value; Changed(); };
         outputStrip.Controls.AddRange([delayLabel, delay]);
         foreach (var o in outputsList.Where(o => !o.IsDefault && s.Routes.ContainsKey(o.Id)))
@@ -641,7 +648,7 @@ internal sealed class MainForm : Form
             var name = new Label { Text = o.Name, AutoSize = true, ForeColor = Color.Gainsboro, Margin = new(12, 8, 4, 0), MaximumSize = new(Scale(200), 0) };
             var bar = new TrackBar { Minimum = -40, Maximum = 12, TickStyle = TickStyle.None, Width = Scale(140), Value = (int)Math.Clamp(Math.Round(route.Gain), -40, 12) };
             var value = new Label { Text = Db(bar.Value), AutoSize = true, Margin = new(0, 8, 4, 0) };
-            var mute = ToggleButton("M", Bad, route.Mute, L("Заглушить этот выход", "Mute this output"));
+            var mute = ToggleButton("M", Bad, route.Mute, L("Заглушить этот выход", "Mute this output", "Бұл шығыстың дыбысын өшіру"));
             bar.ValueChanged += (_, _) => { value.Text = Db(bar.Value); route.Gain = bar.Value; Changed(); ScheduleSave(); };
             ResetOnRightClick(bar);
             mute.CheckedChanged += (_, _) => { route.Mute = mute.Checked; Changed(); ScheduleSave(); };
@@ -667,8 +674,8 @@ internal sealed class MainForm : Form
             var name = new Label { Text = names[i], AutoSize = true, Anchor = AnchorStyles.Left, Font = new("Segoe UI", 10, FontStyle.Bold), ForeColor = ParametricGraph.ColorOf(i) };
             var slider = new TrackBar { Minimum = -48, Maximum = 24, TickStyle = TickStyle.None, SmallChange = 1, LargeChange = 2, Dock = DockStyle.Fill, AutoSize = false, Height = matrix.RowHeight, Value = (int)Math.Clamp(Math.Round(trim.Gain * 2), -48, 24) };
             var value = new Label { Text = Db(slider.Value / 2d), AutoSize = true, Anchor = AnchorStyles.Left };
-            var mute = ToggleButton("M", Bad, trim.Mute, L("Заглушить канал (mute)", "Mute channel"));
-            var solo = ToggleButton("S", Warn, trim.Solo, L("Слушать только этот канал (solo)", "Listen to this channel alone (solo)"));
+            var mute = ToggleButton("M", Bad, trim.Mute, L("Заглушить канал (mute)", "Mute channel", "Арнаның дыбысын өшіру (mute)"));
+            var solo = ToggleButton("S", Warn, trim.Solo, L("Слушать только этот канал (solo)", "Listen to this channel alone (solo)", "Тек осы арнаны тыңдау (solo)"));
             slider.ValueChanged += (_, _) =>
             {
                 value.Text = Db(slider.Value / 2d);
@@ -689,12 +696,15 @@ internal sealed class MainForm : Form
         channelTable.RowStyles.Add(new(SizeType.Percent, 100));
         channelTable.ResumeLayout();
         LayoutMatrix();
-        channelNote.Text = L($"Слева — каналы устройства Windows «{device.Name}» ({names.Length} кан.): громкость, M — заглушить, S — слушать только его. " +
+        channelNote.Text = string.Format(L("Слева — каналы устройства Windows «{0}» ({1} кан.): громкость, M — заглушить, S — слушать только его. " +
                              "Справа — все устройства вывода: клик по кубику отправляет канал на этот выход. Зелёная рамка ◆ — само устройство Windows (там можно переставить каналы местами). " +
                              "Каналов столько, сколько выставлено в Windows: Параметры звука → устройство → Настроить динамики (например, 7.1).",
-                             $"Left — channels of the Windows device “{device.Name}” ({names.Length} ch): level, M — mute, S — solo. " +
+                             "Left — channels of the Windows device “{0}” ({1} ch): level, M — mute, S — solo. " +
                              "Right — every output device: click a cube to send the channel to that output. ◆ marks the Windows device itself (you can swap channels there). " +
-                             "The channel count is what Windows is set to: Sound settings → device → Configure speakers (e.g. 7.1).");
+                             "The channel count is what Windows is set to: Sound settings → device → Configure speakers (e.g. 7.1).",
+                             "Сол жақта — Windows құрылғысының «{0}» арналары ({1} арна): деңгей, M — дыбысын өшіру, S — тек соны тыңдау. " +
+                             "Оң жақта — барлық шығыс құрылғылары: текшені шерту арнаны сол шығысқа жібереді. ◆ — Windows құрылғысының өзі (онда арналардың орнын ауыстыруға болады). " +
+                             "Арналар саны Windows-тағы баптауға сай: Дыбыс параметрлері → құрылғы → Динамиктерді баптау (мысалы, 7.1)."), device.Name, names.Length);
     }
 
     ChannelTrim Trim(int index)
@@ -736,7 +746,7 @@ internal sealed class MainForm : Form
     void FillProfiles()
     {
         profile.Items.Clear();
-        foreach (var b in BuiltInProfiles) profile.Items.Add(new ProfileItem(b.Id, L(b.Ru, b.En)));
+        foreach (var b in BuiltInProfiles) profile.Items.Add(new ProfileItem(b.Id, L(b.Ru, b.En, b.Kk)));
         foreach (var p in s.UserProfiles) profile.Items.Add(new ProfileItem(UserMark + p.Name, UserMark + p.Name));
         // settings of 1.1.0 stored the Russian display name of built-ins
         var legacy = BuiltInProfiles.FirstOrDefault(b => b.Ru == s.Profile);
@@ -750,33 +760,33 @@ internal sealed class MainForm : Form
     string[] ChannelOptions()
     {
         var names = device.ChannelNames;
-        var list = new List<string> { L("Все", "All") };
+        var list = new List<string> { L("Все", "All", "Барлығы") };
         list.AddRange(names);
         if (names.Length >= 2) list.Add("L+R");
-        if (names.Length >= 6) list.Add(L("Тыл L+R", "Rear L+R"));
+        if (names.Length >= 6) list.Add(L("Тыл L+R", "Rear L+R", "Артқы L+R"));
         return [.. list];
     }
 
     string ChannelLabel(string stored)
     {
         stored = stored.Trim();
-        if (stored.Length == 0) return L("Все", "All");
+        if (stored.Length == 0) return L("Все", "All", "Барлығы");
         var names = device.ChannelNames;
         if (stored == "1 2" && names.Length >= 2) return "L+R";
-        if (stored == "5 6" && names.Length >= 6) return L("Тыл L+R", "Rear L+R");
-        if (int.TryParse(stored, out int n)) return n >= 1 && n <= names.Length ? names[n - 1] : L("Канал ", "Channel ") + n;
-        return L("Каналы ", "Channels ") + stored;
+        if (stored == "5 6" && names.Length >= 6) return L("Тыл L+R", "Rear L+R", "Артқы L+R");
+        if (int.TryParse(stored, out int n)) return n >= 1 && n <= names.Length ? names[n - 1] : L("Канал ", "Channel ", "Арна ") + n;
+        return L("Каналы ", "Channels ", "Арналар ") + stored;
     }
 
     string ChannelValue(string label)
     {
         var names = device.ChannelNames;
-        if (label == L("Все", "All")) return "";
+        if (label == L("Все", "All", "Барлығы")) return "";
         if (label == "L+R") return "1 2";
-        if (label == L("Тыл L+R", "Rear L+R")) return "5 6";
+        if (label == L("Тыл L+R", "Rear L+R", "Артқы L+R")) return "5 6";
         int i = Array.IndexOf(names, label);
         if (i >= 0) return (i + 1).ToString();
-        string one = L("Канал ", "Channel "), many = L("Каналы ", "Channels ");
+        string one = L("Канал ", "Channel ", "Арна "), many = L("Каналы ", "Channels ", "Арналар ");
         if (label.StartsWith(one) && int.TryParse(label[one.Length..], out int n)) return n.ToString();
         if (label.StartsWith(many)) return label[many.Length..];
         return "";
@@ -823,7 +833,7 @@ internal sealed class MainForm : Form
             bool hasGain = Band.HasGain(b.Type), isCut = b.Type is "LP" or "HP";
             r.Cells["Gain"].Value = hasGain ? b.Gain.ToString("0.##", CultureInfo.CurrentCulture) : "—";
             r.Cells["Gain"].ReadOnly = !hasGain;
-            r.Cells["Q"].Value = isCut && b.Slope > 12 ? L("авто", "auto") : b.Q.ToString("0.##", CultureInfo.CurrentCulture);
+            r.Cells["Q"].Value = isCut && b.Slope > 12 ? L("авто", "auto", "авто") : b.Q.ToString("0.##", CultureInfo.CurrentCulture);
             r.Cells["Q"].ReadOnly = isCut && b.Slope > 12;
             r.Cells["Slope"].Value = isCut ? SlopeText(b.Slope) : "—";
             r.Cells["Slope"].ReadOnly = !isCut;
@@ -875,7 +885,7 @@ internal sealed class MainForm : Form
         if (Band.HasGain(b.Type)) b.Gain = ParseNumber(r.Cells["Gain"].Value, b.Gain);
         if (!(b.Type is "LP" or "HP" && b.Slope > 12)) b.Q = ParseNumber(r.Cells["Q"].Value, b.Q);
         if (r.Cells["Slope"].Value?.ToString() is { } sl && int.TryParse(sl.Split(' ')[0], out int slopeValue)) b.Slope = slopeValue;
-        b.Channels = ChannelValue(r.Cells["Ch"].Value?.ToString() ?? L("Все", "All"));
+        b.Channels = ChannelValue(r.Cells["Ch"].Value?.ToString() ?? L("Все", "All", "Барлығы"));
         Store.NormalizeBand(b);
         UpdateGridRow(i);
         graph.Invalidate();
@@ -929,8 +939,8 @@ internal sealed class MainForm : Form
 
     void SaveProfile()
     {
-        string suggested = s.Profile.StartsWith(UserMark) ? s.Profile[UserMark.Length..] : L("Мой профиль", "My profile");
-        var name = Prompt.Show(this, L("Сохранить профиль", "Save profile"), L("Название профиля (сохраняется текущий эквалайзер, без предусиления):", "Profile name (saves the current EQ, without the preamp):"), suggested)?.Trim();
+        string suggested = s.Profile.StartsWith(UserMark) ? s.Profile[UserMark.Length..] : L("Мой профиль", "My profile", "Менің профилім");
+        var name = Prompt.Show(this, L("Сохранить профиль", "Save profile", "Профильді сақтау"), L("Название профиля (сохраняется текущий эквалайзер, без предусиления):", "Profile name (saves the current EQ, without the preamp):", "Профиль атауы (алдын ала күшейтусіз, ағымдағы эквалайзер сақталады):"), suggested)?.Trim();
         if (string.IsNullOrEmpty(name)) return;
         s.UserProfiles.RemoveAll(p => p.Name == name);
         s.UserProfiles.Add(new EqProfile { Name = name, Mode = s.Mode, Graphic = [.. s.Graphic], Parametric = s.Parametric.Select(b => b.Clone()).ToList() });
@@ -943,10 +953,10 @@ internal sealed class MainForm : Form
     {
         if (profile.SelectedItem is not ProfileItem { Id: var name } || !name.StartsWith(UserMark))
         {
-            MessageBox.Show(this, L("Встроенные профили удалить нельзя — только свои (со звёздочкой).", "Built-in profiles can't be deleted — only your own (with a star)."), "SoundFlow");
+            MessageBox.Show(this, L("Встроенные профили удалить нельзя — только свои (со звёздочкой).", "Built-in profiles can't be deleted — only your own (with a star).", "Кірістірілген профильдерді жоюға болмайды — тек өзіңіздікін (жұлдызшасы барын)."), "SoundFlow");
             return;
         }
-        if (MessageBox.Show(this, L($"Удалить профиль «{name[UserMark.Length..]}»?", $"Delete profile “{name[UserMark.Length..]}”?"), "SoundFlow", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+        if (MessageBox.Show(this, string.Format(L("Удалить профиль «{0}»?", "Delete profile “{0}”?", "«{0}» профилін жою керек пе?"), name[UserMark.Length..]), "SoundFlow", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
         s.UserProfiles.RemoveAll(p => p.Name == name[UserMark.Length..]);
         s.Profile = "";
         FillProfiles();
@@ -1010,7 +1020,7 @@ internal sealed class MainForm : Form
         if (updating) return;
         holdApply = false;
         UpdateHeadroom();
-        status.Text = L("● ИЗМЕНЕНИЕ…", "● CHANGING…");
+        status.Text = L("● ИЗМЕНЕНИЕ…", "● CHANGING…", "● ӨЗГЕРІС…");
         status.ForeColor = Warn;
         applyTimer.Stop();
         applyTimer.Start();
@@ -1036,12 +1046,13 @@ internal sealed class MainForm : Form
     {
         double peak = EqPeak();
         double total = (s.Enabled ? EffectivePreamp(peak) + peak : 0);
-        headroom.Text = total <= 0.05 ? L("Запас: ", "Headroom: ") + $"{-total:0.0} dB" : L("ВЫШЕ 0 dB: +", "ABOVE 0 dB: +") + $"{total:0.0} dB";
+        headroom.Text = total <= 0.05 ? L("Запас: ", "Headroom: ", "Қор: ") + $"{-total:0.0} dB" : L("ВЫШЕ 0 dB: +", "ABOVE 0 dB: +", "0 dB-ДЕН ЖОҒАРЫ: +") + $"{total:0.0} dB";
         headroom.ForeColor = total <= 0.05 ? Muted : Warn;
     }
 
     void Apply(bool force = false)
     {
+        if (demo) { UpdateStatus(); return; }
         try { router.Update(s.Routes, device.Id); } catch (Exception ex) { Log.Error("Маршрутизация", ex); }
         if (holdApply && !force) return;
         try
@@ -1063,14 +1074,14 @@ internal sealed class MainForm : Form
     {
         (status.Text, status.ForeColor) = lastWrite switch
         {
-            ApoWriteResult.NotInstalled => (L("НУЖЕН EQUALIZER APO — переустановите SoundFlow", "EQUALIZER APO NEEDED — reinstall SoundFlow"), Bad),
-            ApoWriteResult.NoAccess => (L("НЕТ ДОСТУПА К КОНФИГУ APO — нажмите, чтобы исправить", "NO ACCESS TO APO CONFIG — click to fix"), Bad),
-            ApoWriteResult.Error => (L("ОШИБКА ЗАПИСИ — подробности в журнале", "WRITE ERROR — see the log"), Bad),
-            _ when apoAttached == false => (L("APO НЕ ПОДКЛЮЧЁН К ЭТОМУ УСТРОЙСТВУ — нажмите", "APO IS NOT ON THIS DEVICE — click"), Warn),
-            _ when holdApply => (L("● ЖДЁТ ИЗМЕНЕНИЙ (конфиг сохранён)", "● WAITING FOR CHANGES (config kept)"), Muted),
-            _ => (s.Enabled ? L("● В РЕАЛЬНОМ ВРЕМЕНИ", "● LIVE") : L("● ОБРАБОТКА ВЫКЛЮЧЕНА", "● PROCESSING OFF"), s.Enabled ? Acid : Muted),
+            ApoWriteResult.NotInstalled => (L("НУЖЕН EQUALIZER APO — переустановите SoundFlow", "EQUALIZER APO NEEDED — reinstall SoundFlow", "EQUALIZER APO ҚАЖЕТ — SoundFlow-ды қайта орнатыңыз"), Bad),
+            ApoWriteResult.NoAccess => (L("НЕТ ДОСТУПА К КОНФИГУ APO — нажмите, чтобы исправить", "NO ACCESS TO APO CONFIG — click to fix", "APO КОНФИГІНЕ ҚОЛ ЖЕТПЕЙДІ — түзету үшін басыңыз"), Bad),
+            ApoWriteResult.Error => (L("ОШИБКА ЗАПИСИ — подробности в журнале", "WRITE ERROR — see the log", "ЖАЗУ ҚАТЕСІ — толығы журналда"), Bad),
+            _ when apoAttached == false => (L("APO НЕ ПОДКЛЮЧЁН К ЭТОМУ УСТРОЙСТВУ — нажмите", "APO IS NOT ON THIS DEVICE — click", "APO БҰЛ ҚҰРЫЛҒЫҒА ҚОСЫЛМАҒАН — басыңыз"), Warn),
+            _ when holdApply => (L("● ЖДЁТ ИЗМЕНЕНИЙ (конфиг сохранён)", "● WAITING FOR CHANGES (config kept)", "● ӨЗГЕРІСТІ КҮТУДЕ (конфиг сақталған)"), Muted),
+            _ => (s.Enabled ? L("● В РЕАЛЬНОМ ВРЕМЕНИ", "● LIVE", "● НАҚТЫ УАҚЫТТА") : L("● ОБРАБОТКА ВЫКЛЮЧЕНА", "● PROCESSING OFF", "● ӨҢДЕУ ӨШІРУЛІ"), s.Enabled ? Acid : Muted),
         };
-        tray.Text = "SoundFlow — " + (s.Enabled ? L("предусиление ", "preamp ") + Db(s.Preamp) : L("выключено", "off"));
+        tray.Text = "SoundFlow — " + (s.Enabled ? L("предусиление ", "preamp ", "алдын ала күшейту ") + Db(s.Preamp) : L("выключено", "off", "өшірулі"));
     }
 
     void FixProblem()
@@ -1085,8 +1096,7 @@ internal sealed class MainForm : Form
             }
             else if (apoAttached == false && Apo.Configurator is { } configurator)
             {
-                MessageBox.Show(this, L($"Откроется настройка Equalizer APO.\n\nОтметьте галочкой устройство «{device.Name}», нажмите OK и перезагрузите компьютер.",
-                                         $"Equalizer APO setup will open.\n\nTick the device “{device.Name}”, press OK and restart the computer."), "SoundFlow");
+                MessageBox.Show(this, string.Format(L("Откроется настройка Equalizer APO.\n\nОтметьте галочкой устройство «{0}», нажмите OK и перезагрузите компьютер.", "Equalizer APO setup will open.\n\nTick the device “{0}”, press OK and restart the computer.", "Equalizer APO баптауы ашылады.\n\n«{0}» құрылғысын белгілеп, OK басыңыз және компьютерді қайта іске қосыңыз."), device.Name), "SoundFlow");
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(configurator) { UseShellExecute = true, Verb = "runas" });
             }
             else if (lastWrite is ApoWriteResult.Error) OpenFolder(Store.Folder);
@@ -1098,9 +1108,9 @@ internal sealed class MainForm : Form
     void RefreshDevice()
     {
         var previous = device;
-        device = watcher.Current();
-        apoAttached = Apo.IsAttached(device.Id);
-        deviceLabel.Text = L("УСТРОЙСТВО ПО УМОЛЧАНИЮ", "DEFAULT DEVICE") + $"\n{device.Name} · {device.Channels} " + L("кан.", "ch");
+        device = demo ? Demo.Device : watcher.Current();
+        apoAttached = demo ? true : Apo.IsAttached(device.Id);
+        deviceLabel.Text = L("УСТРОЙСТВО ПО УМОЛЧАНИЮ", "DEFAULT DEVICE", "ӘДЕПКІ ҚҰРЫЛҒЫ") + $"\n{device.Name} · {device.Channels} " + L("кан.", "ch", "арна");
         RefreshOutputs();
         if (previous.Id != device.Id || previous.Channels != device.Channels)
         {
@@ -1127,13 +1137,42 @@ internal sealed class MainForm : Form
 
     void SwitchLanguage(string code)
     {
-        if ((code == "en") == Lang.En) return;
+        if (code == Lang.Code) return;
         s.Language = code;
         Store.Save(s);
         // restart: the new copy waits until this one has exited
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Application.ExecutablePath, $"--wait {Environment.ProcessId}") { UseShellExecute = false });
         tray.Visible = false;
         Application.Exit();
+    }
+
+    /// <summary>Screenshots for the README (demo mode only).</summary>
+    public void CaptureScreens(string folder)
+    {
+        Directory.CreateDirectory(folder);
+        string lang = Lang.Code;
+        void Shot(string name)
+        {
+            for (int i = 0; i < 5; i++) { Application.DoEvents(); Thread.Sleep(60); }
+            graph.Invalidate();
+            matrix.Invalidate();
+            Refresh();
+            using var bmp = new Bitmap(Width, Height);
+            DrawToBitmap(bmp, new Rectangle(0, 0, Width, Height));
+            bmp.Save(Path.Combine(folder, $"{name}-{lang}.png"), System.Drawing.Imaging.ImageFormat.Png);
+        }
+        updating = true;
+        tabs.SelectedIndex = 0;
+        s.Mode = 1;
+        SetMode(1);
+        graph.Selected = 3;
+        Shot("parametric");
+        s.Mode = 0;
+        SetMode(0);
+        Shot("graphic");
+        tabs.SelectedIndex = 1;
+        Shot("routing");
+        updating = false;
     }
 
     void ApplyAutostart()
@@ -1172,8 +1211,8 @@ internal static class Prompt
         };
         var label = new Label { Text = text, Left = 14, Top = 12, Width = 392, Height = 34 };
         var box = new TextBox { Text = value, Left = 14, Top = 50, Width = 392 };
-        var ok = new Button { Text = L("Сохранить", "Save"), DialogResult = DialogResult.OK, Left = 226, Top = 88, Width = 90 };
-        var cancel = new Button { Text = L("Отмена", "Cancel"), DialogResult = DialogResult.Cancel, Left = 316, Top = 88, Width = 90 };
+        var ok = new Button { Text = L("Сохранить", "Save", "Сақтау"), DialogResult = DialogResult.OK, Left = 226, Top = 88, Width = 90 };
+        var cancel = new Button { Text = L("Отмена", "Cancel", "Бас тарту"), DialogResult = DialogResult.Cancel, Left = 316, Top = 88, Width = 90 };
         form.Controls.AddRange([label, box, ok, cancel]);
         form.AcceptButton = ok;
         form.CancelButton = cancel;

@@ -36,3 +36,37 @@ jobs:
         with:
           files: SoundFlow-Setup.exe
           generate_release_notes: true
+
+  screenshots:
+    # Takes demo screenshots of the real interface for the README and commits them when they change.
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build app
+        run: dotnet publish SoundFlow.App/SoundFlow.App.csproj -c Release -r win-x64 --self-contained true -o native-release
+
+      - name: Take screenshots
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath native-release\SoundFlow.exe -ArgumentList '--screenshots', "$PWD\docs\img" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "screenshots failed: $($p.ExitCode)" }
+          Get-ChildItem docs\img
+
+      - name: Commit screenshots
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/img
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "Update README screenshots [skip ci]"
+            git push
+          }
